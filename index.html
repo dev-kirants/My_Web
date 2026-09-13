@@ -854,6 +854,70 @@
   const STORAGE_KEY = "kiran-portfolio-data-v2";
   let isAdmin = false;
 
+  /* ---------- storage backend ----------
+     This file is meant to be hosted as a real standalone website, not just
+     previewed inside Claude — so it can't rely on the Claude-only
+     window.storage API (that only exists inside Claude's own preview frame,
+     which is why saves kept failing once this was opened as a normal page).
+     Instead it keeps its own local database in the browser, using
+     IndexedDB, which comfortably holds photos and PDFs. If window.storage
+     does happen to be present (e.g. viewing inside Claude), it's used
+     instead so the shared-preview behaviour there still works. */
+  const LocalDB = (function(){
+    const DB_NAME = 'kiranPortfolioDB';
+    const STORE_NAME = 'kv';
+    let dbPromise = null;
+    function openDB(){
+      if(dbPromise) return dbPromise;
+      dbPromise = new Promise((resolve, reject)=>{
+        if(!('indexedDB' in window)){ reject(new Error('IndexedDB not available')); return; }
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = () => { req.result.createObjectStore(STORE_NAME); };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+      return dbPromise;
+    }
+    async function get(key){
+      const db = await openDB();
+      return new Promise((resolve, reject)=>{
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const req = tx.objectStore(STORE_NAME).get(key);
+        req.onsuccess = () => resolve(req.result === undefined ? null : { key, value: req.result });
+        req.onerror = () => reject(req.error);
+      });
+    }
+    async function set(key, value){
+      const db = await openDB();
+      return new Promise((resolve, reject)=>{
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).put(value, key);
+        tx.oncomplete = () => resolve({ key, value });
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+    async function del(key){
+      const db = await openDB();
+      return new Promise((resolve, reject)=>{
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).delete(key);
+        tx.oncomplete = () => resolve({ key, deleted: true });
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+    return { get, set, delete: del };
+  })();
+  const usingClaudePreviewStorage = !!(window.storage && typeof window.storage.set === 'function');
+  async function storageGet(key){
+    return usingClaudePreviewStorage ? window.storage.get(key, true) : LocalDB.get(key);
+  }
+  async function storageSet(key, value){
+    return usingClaudePreviewStorage ? window.storage.set(key, value, true) : LocalDB.set(key, value);
+  }
+  async function storageDelete(key){
+    return usingClaudePreviewStorage ? window.storage.delete(key, true) : LocalDB.delete(key);
+  }
+
   const DEFAULT_DATA = {
     profile: {
       name: "Kiran T S",
@@ -868,7 +932,7 @@
     about: "To secure a challenging role in a forward-thinking organization where I can leverage my technical and interpersonal skills, gain deeper insights into business operations and brand growth, and contribute meaningfully to team objectives in a fast-paced environment.\n\nAs a fresh graduate, I'm eager to learn, collaborate closely with experienced professionals, and treat every day as an opportunity for growth and skill-building.",
     resume: { fileName: "", fileId: "" },
     education: [
-      { year:"2027 (expected)", degree:"Master's Degree in Commerce — Specialization in FinTech", institution:"Bengaluru City University", detail:"Expected graduation", score:"In progress", photo:"" },
+      { year:"2025 – 2027", degree:"Master's Degree in Commerce — Specialization in FinTech", institution:"Bengaluru City University", detail:"Currently pursuing", score:"In progress", photo:"" },
       { year:"2025", degree:"Bachelor's Degree in Commerce", institution:"Bengaluru City University", detail:"", score:"CGPA 9.08", photo:"" },
       { year:"2022", degree:"Pre-University Education", institution:"Sir M Visvesvaraya P U College", detail:"Commerce, EBACs", score:"94.83%", photo:"" },
       { year:"2020", degree:"SSLC", institution:"Sir M Visvesvaraya High School", detail:"", score:"87.04%", photo:"" }
@@ -949,7 +1013,7 @@
   async function storeAsset(dataUrl){
     if(!dataUrl) return '';
     const id = newAssetId();
-    const res = await window.storage.set('asset:'+id, dataUrl, true);
+    const res = await storageSet('asset:'+id, dataUrl);
     if(!res) throw new Error('asset save failed');
     assetCache[id] = dataUrl;
     return id;
@@ -958,7 +1022,7 @@
     if(!id) return '';
     if(assetCache[id] !== undefined) return assetCache[id];
     try{
-      const res = await window.storage.get('asset:'+id, true);
+      const res = await storageGet('asset:'+id);
       const val = res ? res.value : '';
       assetCache[id] = val;
       return val;
@@ -969,7 +1033,7 @@
   }
   async function deleteAssetSafe(id){
     if(!id) return;
-    try{ await window.storage.delete('asset:'+id, true); }catch(e){}
+    try{ await storageDelete('asset:'+id); }catch(e){}
     delete assetCache[id];
   }
   function assetSrc(id){
@@ -1025,15 +1089,15 @@
 
   async function loadData(){
     try{
-      const res = await window.storage.get(STORAGE_KEY, true);
+      const res = await storageGet(STORAGE_KEY);
       if(res && res.value){ data = withDefaults(JSON.parse(res.value)); }
-      else{ await window.storage.set(STORAGE_KEY, JSON.stringify(data), true); }
+      else{ await storageSet(STORAGE_KEY, JSON.stringify(data)); }
     }catch(e){
-      try{ await window.storage.set(STORAGE_KEY, JSON.stringify(data), true); }catch(e2){}
+      try{ await storageSet(STORAGE_KEY, JSON.stringify(data)); }catch(e2){}
     }
     try{
       const changed = await migrateEmbeddedAssets();
-      if(changed){ await window.storage.set(STORAGE_KEY, JSON.stringify(data), true); }
+      if(changed){ await storageSet(STORAGE_KEY, JSON.stringify(data)); }
     }catch(e){ /* migration best-effort; keep going even if it fails */ }
     await preloadAssets();
     renderPublic();
@@ -1041,7 +1105,7 @@
   }
   async function saveData(msgEl){
     try{
-      const res = await window.storage.set(STORAGE_KEY, JSON.stringify(data), true);
+      const res = await storageSet(STORAGE_KEY, JSON.stringify(data));
       if(!res) throw new Error('save failed');
       if(msgEl){ msgEl.textContent = "Saved."; setTimeout(()=>{ if(msgEl) msgEl.textContent=""; }, 1800); }
     }catch(e){
