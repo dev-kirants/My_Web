@@ -866,8 +866,9 @@
       degree: "B.Com, Bengaluru City University"
     },
     about: "To secure a challenging role in a forward-thinking organization where I can leverage my technical and interpersonal skills, gain deeper insights into business operations and brand growth, and contribute meaningfully to team objectives in a fast-paced environment.\n\nAs a fresh graduate, I'm eager to learn, collaborate closely with experienced professionals, and treat every day as an opportunity for growth and skill-building.",
-    resume: { fileName: "", fileData: "" },
+    resume: { fileName: "", fileId: "" },
     education: [
+      { year:"2027 (expected)", degree:"Master's Degree in Commerce — Specialization in FinTech", institution:"Bengaluru City University", detail:"Expected graduation", score:"In progress", photo:"" },
       { year:"2025", degree:"Bachelor's Degree in Commerce", institution:"Bengaluru City University", detail:"", score:"CGPA 9.08", photo:"" },
       { year:"2022", degree:"Pre-University Education", institution:"Sir M Visvesvaraya P U College", detail:"Commerce, EBACs", score:"94.83%", photo:"" },
       { year:"2020", degree:"SSLC", institution:"Sir M Visvesvaraya High School", detail:"", score:"87.04%", photo:"" }
@@ -886,7 +887,8 @@
       { title:"Cyber Hygiene Practices", issuer:"Ministry of Electronics and Information Technology", year:"", image:"" },
       { title:"Cybersecurity for Businesses", issuer:"CodeRed", year:"", image:"" },
       { title:"Excel using AI — One-Day Workshop", issuer:"Office Master", year:"", image:"" },
-      { title:"Python Course for Beginners: Mastering the Essentials", issuer:"SCALER Topics", year:"", image:"" }
+      { title:"Python Course for Beginners: Mastering the Essentials", issuer:"SCALER Topics", year:"", image:"" },
+      { title:"Introduction to Commercial Banking and Fintech", issuer:"NPTEL (SWAYAM), IIT Kanpur", year:"Elite + Silver (82%)", image:"" }
     ],
     skills: {
       technical: ["MS Office", "HTML", "CSS", "Python", "Power BI", "OS settings & system components", "Event & editorial software tools"],
@@ -902,7 +904,11 @@
       { tag:"Ongoing", title:"Editor, College Newsletter Committee",
         description:"Directed content creation and editing efforts — strong communication and meticulous attention to detail.", image:"" },
       { tag:"Ongoing", title:"Founder, department technical team",
-        description:"Established and managed a technical team within the department, building project management and leadership capability.", image:"" }
+        description:"Established and managed a technical team within the department, building project management and leadership capability.", image:"" },
+      { tag:"Nov 2025", title:"Webinar — Data Analytics & the Future of Wealth Management",
+        description:"Organised by IKSA Education. Explored the strategic importance of data-driven decision-making across modern industries, and analysed how AI and robotics are transforming wealth management through personalised advisory, automated portfolio rebalancing and real-time risk assessment.", image:"" },
+      { tag:"Mar 2026", title:"Participant, Intercollege Fest — Brand Race",
+        description:"At BMS College of Law: executed a rapid-fire marketing strategy for a consumer food product (Papad) under strict time constraints, showcasing creative branding, positioning and pitch delivery under pressure.", image:"" }
     ],
     languages: [
       { name:"Kannada", note:"read · write · speak" },
@@ -920,6 +926,7 @@
   };
 
   let data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  let assetCache = {};
 
   function withDefaults(loaded){
     const merged = JSON.parse(JSON.stringify(DEFAULT_DATA));
@@ -927,7 +934,93 @@
       if(loaded && loaded[key] !== undefined) merged[key] = loaded[key];
     });
     if(loaded && loaded.profile){ merged.profile = Object.assign({}, DEFAULT_DATA.profile, loaded.profile); }
+    if(loaded && loaded.resume){ merged.resume = Object.assign({}, DEFAULT_DATA.resume, loaded.resume); }
     return merged;
+  }
+
+  /* ---------- asset storage: large binary content (photos, resume PDFs, cert scans)
+     is kept in its own storage key instead of embedded in the main data blob.
+     This is what fixes "uploads not saving" — the old version stuffed every image's
+     base64 data straight into one JSON object, and once that combined blob crossed
+     the per-key size limit, saving the *entire* site's data silently failed. ---------- */
+  function newAssetId(){
+    return 'a_' + Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+  }
+  async function storeAsset(dataUrl){
+    if(!dataUrl) return '';
+    const id = newAssetId();
+    const res = await window.storage.set('asset:'+id, dataUrl, true);
+    if(!res) throw new Error('asset save failed');
+    assetCache[id] = dataUrl;
+    return id;
+  }
+  async function loadAsset(id){
+    if(!id) return '';
+    if(assetCache[id] !== undefined) return assetCache[id];
+    try{
+      const res = await window.storage.get('asset:'+id, true);
+      const val = res ? res.value : '';
+      assetCache[id] = val;
+      return val;
+    }catch(e){
+      assetCache[id] = '';
+      return '';
+    }
+  }
+  async function deleteAssetSafe(id){
+    if(!id) return;
+    try{ await window.storage.delete('asset:'+id, true); }catch(e){}
+    delete assetCache[id];
+  }
+  function assetSrc(id){
+    return id ? (assetCache[id] || '') : '';
+  }
+  function collectAssetIds(){
+    const ids = new Set();
+    if(data.profile.photo) ids.add(data.profile.photo);
+    if(data.resume && data.resume.fileId) ids.add(data.resume.fileId);
+    data.education.forEach(x=>x.photo && ids.add(x.photo));
+    data.experience.forEach(x=>x.photo && ids.add(x.photo));
+    data.certifications.forEach(x=>x.image && ids.add(x.image));
+    data.activities.forEach(x=>x.image && ids.add(x.image));
+    data.projects.forEach(x=>x.image && ids.add(x.image));
+    data.gallery.forEach(x=>x.image && ids.add(x.image));
+    return Array.from(ids);
+  }
+  async function preloadAssets(){
+    await Promise.all(collectAssetIds().map(loadAsset));
+  }
+  /* migrates any old-format entries where the image/resume was still an
+     embedded base64 "data:" URL, moving it out to its own asset key. */
+  async function migrateEmbeddedAssets(){
+    let changed = false;
+    async function migrateField(obj, key){
+      const val = obj[key];
+      if(typeof val === 'string' && val.indexOf('data:') === 0){
+        try{ obj[key] = await storeAsset(val); changed = true; }
+        catch(e){ obj[key] = ''; }
+      }
+    }
+    await migrateField(data.profile, 'photo');
+    if(data.resume && typeof data.resume.fileData === 'string' && data.resume.fileData.indexOf('data:') === 0){
+      try{
+        const id = await storeAsset(data.resume.fileData);
+        data.resume = { fileName: data.resume.fileName || 'resume.pdf', fileId: id };
+      }catch(e){
+        data.resume = { fileName:'', fileId:'' };
+      }
+      changed = true;
+    } else if(data.resume && 'fileData' in data.resume){
+      delete data.resume.fileData;
+      changed = true;
+    }
+    for(const it of data.education) await migrateField(it, 'photo');
+    for(const it of data.experience) await migrateField(it, 'photo');
+    for(const it of data.certifications) await migrateField(it, 'image');
+    for(const it of data.activities) await migrateField(it, 'image');
+    for(const it of data.projects) await migrateField(it, 'image');
+    for(const it of data.gallery) await migrateField(it, 'image');
+    return changed;
   }
 
   async function loadData(){
@@ -938,12 +1031,18 @@
     }catch(e){
       try{ await window.storage.set(STORAGE_KEY, JSON.stringify(data), true); }catch(e2){}
     }
+    try{
+      const changed = await migrateEmbeddedAssets();
+      if(changed){ await window.storage.set(STORAGE_KEY, JSON.stringify(data), true); }
+    }catch(e){ /* migration best-effort; keep going even if it fails */ }
+    await preloadAssets();
     renderPublic();
     renderAdmin();
   }
   async function saveData(msgEl){
     try{
-      await window.storage.set(STORAGE_KEY, JSON.stringify(data), true);
+      const res = await window.storage.set(STORAGE_KEY, JSON.stringify(data), true);
+      if(!res) throw new Error('save failed');
       if(msgEl){ msgEl.textContent = "Saved."; setTimeout(()=>{ if(msgEl) msgEl.textContent=""; }, 1800); }
     }catch(e){
       if(msgEl){ msgEl.textContent = "Could not save — try again."; }
@@ -1021,15 +1120,17 @@
     const p = data.profile;
     document.getElementById('heroName').innerHTML = escapeHtml(p.name) + '<span class="u"></span>';
     document.getElementById('heroTag').textContent = p.tagline;
-    document.getElementById('heroPhotoWrap').innerHTML = p.photo
-      ? `<img src="${p.photo}" class="hero-photo" alt="${escapeHtml(p.name)}" onclick="event.stopPropagation(); openLightbox('${p.photo}')">`
+    const heroPhotoSrc = assetSrc(p.photo);
+    document.getElementById('heroPhotoWrap').innerHTML = heroPhotoSrc
+      ? `<img src="${heroPhotoSrc}" class="hero-photo" alt="${escapeHtml(p.name)}" onclick="event.stopPropagation(); openLightbox('${heroPhotoSrc}')">`
       : `<div class="hero-photo-placeholder">${escapeHtml((p.name||'?').charAt(0))}</div>`;
 
     const resumeBtn = document.getElementById('resumeBtn');
     if(resumeBtn){
-      if(data.resume && data.resume.fileData){
+      const resumeSrc = data.resume ? assetSrc(data.resume.fileId) : '';
+      if(resumeSrc){
         resumeBtn.style.display = '';
-        resumeBtn.href = data.resume.fileData;
+        resumeBtn.href = resumeSrc;
         resumeBtn.setAttribute('download', data.resume.fileName || 'resume.pdf');
       } else {
         resumeBtn.style.display = 'none';
@@ -1067,31 +1168,36 @@
     document.getElementById('sideLocation').textContent = p.location;
     document.getElementById('sideLang').textContent = data.languages.map(l=>l.name).join(' · ');
 
-    document.getElementById('educationList').innerHTML = data.education.length ? data.education.map(ed => `
+    document.getElementById('educationList').innerHTML = data.education.length ? data.education.map(ed => {
+      const src = assetSrc(ed.photo);
+      return `
       <div class="ledger-row">
         <div class="ledger-year mono">${escapeHtml(ed.year)}</div>
-        ${ed.photo ? `<img src="${ed.photo}" class="ledger-thumb" onclick="openLightbox('${ed.photo}')">` : '<div></div>'}
+        ${src ? `<img src="${src}" class="ledger-thumb" onclick="openLightbox('${src}')">` : '<div></div>'}
         <div class="ledger-main"><div class="name">${escapeHtml(ed.degree)}</div><div class="sub">${escapeHtml(ed.institution)}${ed.detail ? ' — '+escapeHtml(ed.detail) : ''}</div></div>
         <div class="ledger-score">${escapeHtml(ed.score)}</div>
       </div>
-    `).join('') : '<div class="empty-note">No education entries yet.</div>';
+    `; }).join('') : '<div class="empty-note">No education entries yet.</div>';
 
-    document.getElementById('experienceList').innerHTML = data.experience.length ? data.experience.map(ex => `
+    document.getElementById('experienceList').innerHTML = data.experience.length ? data.experience.map(ex => {
+      const src = assetSrc(ex.photo);
+      return `
       <div class="exp-card">
         <div>
           <div class="exp-top"><div class="exp-role">${escapeHtml(ex.role)} — ${escapeHtml(ex.org)}</div><div class="exp-meta">${escapeHtml(ex.period)} · ${escapeHtml(ex.location)}</div></div>
           <p>${escapeHtml(ex.description)}</p>
         </div>
-        ${ex.photo ? `<img src="${ex.photo}" class="exp-photo" onclick="openLightbox('${ex.photo}')">` : ''}
+        ${src ? `<img src="${src}" class="exp-photo" onclick="openLightbox('${src}')">` : ''}
       </div>
-    `).join('') : '<div class="empty-note">No experience entries yet.</div>';
+    `; }).join('') : '<div class="empty-note">No experience entries yet.</div>';
 
     document.getElementById('projectsGrid').innerHTML = data.projects.length ? data.projects.map(pr => {
       const sign = metricSign(pr.metric);
+      const src = assetSrc(pr.image);
       return `
       <a class="project-card" href="${pr.link ? escapeHtml(pr.link) : '#'}" target="${pr.link ? '_blank' : '_self'}" rel="noopener" onclick="${pr.link ? '' : 'return false;'}">
         <div class="project-media">
-          ${pr.image ? `<img src="${pr.image}" alt="${escapeHtml(pr.title)}">` : `<div class="project-media-fallback">${escapeHtml((pr.title||'?').charAt(0))}</div>`}
+          ${src ? `<img src="${src}" alt="${escapeHtml(pr.title)}">` : `<div class="project-media-fallback">${escapeHtml((pr.title||'?').charAt(0))}</div>`}
           ${pr.metric ? `<div class="project-metric ${sign}"><span class="arrow">${sign==='down'?'▾':'▴'}</span>${escapeHtml(pr.metric)}</div>` : ''}
         </div>
         <div class="project-body">
@@ -1103,24 +1209,28 @@
       </a>
     `; }).join('') : '<div class="empty-note">No projects added yet — add your first build from the admin desk.</div>';
 
-    document.getElementById('certList').innerHTML = data.certifications.length ? data.certifications.map((c,i) => `
+    document.getElementById('certList').innerHTML = data.certifications.length ? data.certifications.map((c,i) => {
+      const src = assetSrc(c.image);
+      return `
       <div class="cert-row">
-        ${c.image ? `<img src="${c.image}" class="cert-thumb" onclick="openLightbox('${c.image}')">` : `<div class="cert-mark">${String(i+1).padStart(2,'0')}</div>`}
+        ${src ? `<img src="${src}" class="cert-thumb" onclick="openLightbox('${src}')">` : `<div class="cert-mark">${String(i+1).padStart(2,'0')}</div>`}
         <div><div class="cert-title">${escapeHtml(c.title)}</div><div class="cert-issuer">${escapeHtml(c.issuer)}</div></div>
         <div class="cert-year">${escapeHtml(c.year)}</div>
       </div>
-    `).join('') : '<div class="empty-note">No certifications listed yet.</div>';
+    `; }).join('') : '<div class="empty-note">No certifications listed yet.</div>';
 
     document.getElementById('techSkills').innerHTML = data.skills.technical.map(s => `<div class="skill-tag">${escapeHtml(s)}</div>`).join('') || '<div class="empty-note">None yet.</div>';
     document.getElementById('softSkills').innerHTML = data.skills.professional.map(s => `<div class="skill-tag">${escapeHtml(s)}</div>`).join('') || '<div class="empty-note">None yet.</div>';
 
-    document.getElementById('activitiesList').innerHTML = data.activities.length ? data.activities.map(a => `
+    document.getElementById('activitiesList').innerHTML = data.activities.length ? data.activities.map(a => {
+      const src = assetSrc(a.image);
+      return `
       <div class="extra-item">
         <div class="extra-tag">${escapeHtml(a.tag)}</div>
         <div class="extra-body"><div class="t">${escapeHtml(a.title)}</div><p>${escapeHtml(a.description)}</p></div>
-        ${a.image ? `<img src="${a.image}" class="extra-thumb" onclick="openLightbox('${a.image}')">` : '<div></div>'}
+        ${src ? `<img src="${src}" class="extra-thumb" onclick="openLightbox('${src}')">` : '<div></div>'}
       </div>
-    `).join('') : '<div class="empty-note">Nothing added yet.</div>';
+    `; }).join('') : '<div class="empty-note">Nothing added yet.</div>';
 
     document.getElementById('langRow').innerHTML = data.languages.length ? data.languages.map(l => `
       <div class="lang-item">${escapeHtml(l.name)}<span>${escapeHtml(l.note)}</span></div>
@@ -1136,12 +1246,14 @@
       </a>
     `; }).join('') : '<div class="empty-note">No links added yet.</div>';
 
-    document.getElementById('galleryGrid').innerHTML = data.gallery.length ? data.gallery.map(g => `
+    document.getElementById('galleryGrid').innerHTML = data.gallery.length ? data.gallery.map(g => {
+      const src = assetSrc(g.image);
+      return `
       <div class="gallery-card">
-        <img src="${g.image}" onclick="openLightbox('${g.image}')" alt="${escapeHtml(g.caption)}">
+        <img src="${src}" onclick="openLightbox('${src}')" alt="${escapeHtml(g.caption)}">
         <div class="gallery-cap">${escapeHtml(g.caption)}</div>
       </div>
-    `).join('') : '<div class="empty-note">No photos added yet.</div>';
+    `; }).join('') : '<div class="empty-note">No photos added yet.</div>';
 
     document.getElementById('footName').textContent = p.name;
     document.getElementById('footContact').textContent = `${p.email} · ${p.phone} · ${p.location}`;
@@ -1176,15 +1288,17 @@
     document.getElementById('p_linkedin').value = p.linkedin;
     document.getElementById('p_about').value = data.about;
     document.getElementById('p_degree').value = p.degree;
-    document.getElementById('p_photo_preview').innerHTML = p.photo ? `<img src="${p.photo}" class="mi-thumb" onclick="openLightbox('${p.photo}')">` : '';
+    const photoSrc = assetSrc(p.photo);
+    document.getElementById('p_photo_preview').innerHTML = photoSrc ? `<img src="${photoSrc}" class="mi-thumb" onclick="openLightbox('${photoSrc}')">` : '';
     const resumeInfo = document.getElementById('p_resume_preview');
-    resumeInfo.innerHTML = (data.resume && data.resume.fileData)
+    resumeInfo.innerHTML = (data.resume && data.resume.fileId)
       ? `<span class="resume-chip">📄 ${escapeHtml(data.resume.fileName || 'resume.pdf')} <button type="button" class="resume-remove" onclick="removeResume()">remove</button></span>`
       : `<span class="empty-note">No resume uploaded yet.</span>`;
   }
-  function removeResume(){
-    data.resume = { fileName:'', fileData:'' };
-    persist(document.getElementById('profileMsg'));
+  async function removeResume(){
+    if(data.resume && data.resume.fileId) await deleteAssetSafe(data.resume.fileId);
+    data.resume = { fileName:'', fileId:'' };
+    await persist(document.getElementById('profileMsg'));
     fillProfileForm();
   }
   function fileToDataURL(file){
@@ -1196,6 +1310,7 @@
     });
   }
   async function saveProfile(){
+    const msgEl = document.getElementById('profileMsg');
     const p = data.profile;
     p.name = document.getElementById('p_name').value.trim() || p.name;
     p.tagline = document.getElementById('p_tagline').value.trim();
@@ -1207,16 +1322,35 @@
     data.about = document.getElementById('p_about').value;
     const fileInput = document.getElementById('p_photo_file');
     if(fileInput.files && fileInput.files[0]){
-      p.photo = await fileToCompressedDataURL(fileInput.files[0], 500, 0.8);
+      try{
+        const compressed = await fileToCompressedDataURL(fileInput.files[0], 500, 0.8);
+        const oldId = p.photo;
+        p.photo = await storeAsset(compressed);
+        if(oldId) await deleteAssetSafe(oldId);
+      }catch(e){
+        msgEl.textContent = "Could not save the photo — try a smaller image.";
+      }
       fileInput.value = '';
     }
     const resumeInput = document.getElementById('p_resume_file');
     if(resumeInput.files && resumeInput.files[0]){
       const f = resumeInput.files[0];
-      data.resume = { fileName: f.name, fileData: await fileToDataURL(f) };
+      if(f.size > 4.5 * 1024 * 1024){
+        msgEl.textContent = "That PDF is too large (max ~4.5MB) — try a smaller file.";
+      } else {
+        try{
+          const dataUrl = await fileToDataURL(f);
+          const oldId = data.resume ? data.resume.fileId : '';
+          const id = await storeAsset(dataUrl);
+          data.resume = { fileName: f.name, fileId: id };
+          if(oldId) await deleteAssetSafe(oldId);
+        }catch(e){
+          msgEl.textContent = "Could not save the resume — try a smaller PDF.";
+        }
+      }
       resumeInput.value = '';
     }
-    await persist(document.getElementById('profileMsg'));
+    await persist(msgEl);
     fillProfileForm();
   }
 
@@ -1227,30 +1361,44 @@
         ? `<div class="field"><label>${f.label}</label><textarea rows="3" data-key="${f.key}">${escapeHtml(item[f.key])}</textarea></div>`
         : `<div class="field"><label>${f.label}</label><input type="text" data-key="${f.key}" value="${escapeHtml(item[f.key])}"></div>`
       ).join('');
+      const imgSrc = imageField ? assetSrc(item[imageField.key]) : '';
       const imgHtml = imageField ? `
         <div class="field">
           <label>${imageField.label}</label>
-          ${item[imageField.key] ? `<img src="${item[imageField.key]}" class="mi-thumb" onclick="openLightbox('${item[imageField.key]}')">` : ''}
+          ${imgSrc ? `<img src="${imgSrc}" class="mi-thumb" onclick="openLightbox('${imgSrc}')">` : ''}
           <input type="file" accept="image/*" class="mi-file">
         </div>` : '';
       return `<div class="manage-card" data-idx="${idx}">${fieldsHtml}${imgHtml}
         <div class="manage-card-actions">
           <button class="btn" data-action="save">Save</button>
           <button class="btn danger" data-action="remove">Remove</button>
-        </div></div>`;
+        </div>
+        <div class="save-msg" data-role="msg"></div>
+        </div>`;
     }).join('') || '<div class="empty-note">Nothing added yet.</div>';
 
     container.querySelectorAll('.manage-card').forEach(card=>{
       const idx = +card.dataset.idx;
       card.querySelector('[data-action="save"]').addEventListener('click', async ()=>{
+        const msgEl = card.querySelector('[data-role="msg"]');
         fields.forEach(f=>{ arr[idx][f.key] = card.querySelector(`[data-key="${f.key}"]`).value; });
         if(imageField){
           const fi = card.querySelector('.mi-file');
-          if(fi.files && fi.files[0]) arr[idx][imageField.key] = await fileToCompressedDataURL(fi.files[0]);
+          if(fi.files && fi.files[0]){
+            try{
+              const compressed = await fileToCompressedDataURL(fi.files[0]);
+              const oldId = arr[idx][imageField.key];
+              arr[idx][imageField.key] = await storeAsset(compressed);
+              if(oldId) await deleteAssetSafe(oldId);
+            }catch(e){
+              if(msgEl) msgEl.textContent = "Could not save the image — try a smaller file.";
+            }
+          }
         }
-        await persist();
+        await persist(msgEl);
       });
       card.querySelector('[data-action="remove"]').addEventListener('click', async ()=>{
+        if(imageField && arr[idx][imageField.key]) await deleteAssetSafe(arr[idx][imageField.key]);
         arr.splice(idx,1);
         await persist();
       });
@@ -1267,7 +1415,17 @@
       if(!newItem[fields[0].key]) return;
       if(imageField){
         const fi = document.getElementById(`${prefix}_${imageField.formKey}`);
-        newItem[imageField.key] = (fi.files && fi.files[0]) ? await fileToCompressedDataURL(fi.files[0]) : '';
+        if(fi.files && fi.files[0]){
+          try{
+            const compressed = await fileToCompressedDataURL(fi.files[0]);
+            newItem[imageField.key] = await storeAsset(compressed);
+          }catch(e){
+            newItem[imageField.key] = '';
+            alert('Could not save the image — try a smaller file. The rest of the entry was still added.');
+          }
+        } else {
+          newItem[imageField.key] = '';
+        }
       }
       arr.push(newItem);
       fields.forEach(f=>{ document.getElementById(`${prefix}_${f.key}`).value = ''; });
