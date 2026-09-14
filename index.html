@@ -662,6 +662,8 @@
         </div>
       </div>
 
+      <div class="save-msg" id="storageStatus" style="margin-bottom:18px; font-size:12.5px;"></div>
+
       <div class="admin-tabs" id="adminTabs"></div>
 
       <div class="admin-tab-panel active" id="tab-profile">
@@ -839,6 +841,18 @@
         </div>
       </div>
 
+      <div class="admin-tab-panel" id="tab-analytics">
+        <div class="panel-block">
+          <div class="panel-head"><h3>Visitor activity</h3><p>Every page view and click on the live site, pulled from the shared database.</p></div>
+          <button class="btn ghost" onclick="loadAnalytics()">Refresh</button>
+          <div id="anaSummary" style="margin-top:16px;"></div>
+        </div>
+        <div class="panel-block">
+          <div class="panel-head"><h3>Recent events</h3><p>Most recent 50 events.</p></div>
+          <div id="anaList"></div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -848,6 +862,8 @@
   <img id="lightboxImg" src="" alt="">
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
   const ADMIN_USER = "Athishay";
   const ADMIN_PASS = "9663008044";
@@ -908,14 +924,79 @@
     return { get, set, delete: del };
   })();
   const usingClaudePreviewStorage = !!(window.storage && typeof window.storage.set === 'function');
+
+  /* ---------- shared database (optional, recommended) ----------
+     Fill in your own FREE Firebase project's config below to make admin
+     edits show up for every visitor everywhere, and to enable the
+     "Visitor activity" tab in the admin panel. Steps:
+       1. Go to https://console.firebase.google.com → Add project (free).
+       2. In the project, click </> (Web app), register the app, copy the
+          firebaseConfig object it gives you, and paste its values below.
+       3. In the console go to Firestore Database → Create database
+          (start in "test mode" is simplest for a personal site) → pick a
+          region close to you.
+     Until you do this, the site keeps working fine using local
+     browser-only storage (edits only show on the browser you edited from).
+     Note: because the admin login here is just a password check inside
+     the page's own JavaScript (not real server-side auth), "test mode"
+     Firestore rules mean anyone could in theory write to your database
+     directly — acceptable for a simple personal portfolio, but worth
+     knowing. */
+  const FIREBASE_CONFIG = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+  let firestoreDB = null;
+  let firebaseReady = false;
+  try{
+    if(FIREBASE_CONFIG.projectId && FIREBASE_CONFIG.projectId !== "YOUR_PROJECT_ID" && window.firebase){
+      firebase.initializeApp(FIREBASE_CONFIG);
+      firestoreDB = firebase.firestore();
+      firebaseReady = true;
+    }
+  }catch(e){ console.error('Firebase init failed', e); firebaseReady = false; }
+
+  const FirestoreKV = {
+    async get(key){
+      const doc = await firestoreDB.collection('kv').doc(key).get();
+      return doc.exists ? { key, value: doc.data().value } : null;
+    },
+    async set(key, value){
+      await firestoreDB.collection('kv').doc(key).set({ value });
+      return { key, value };
+    },
+    async delete(key){
+      await firestoreDB.collection('kv').doc(key).delete();
+      return { key, deleted: true };
+    }
+  };
+  // Firestore documents are capped at 1MB each, tighter than local storage —
+  // large photos/PDFs need a smaller cap when a shared database is connected.
+  const MAX_ASSET_BYTES = firebaseReady ? 900 * 1024 : 20 * 1024 * 1024;
+  const MAX_RESUME_BYTES = firebaseReady ? 650 * 1024 : 4.5 * 1024 * 1024;
+
   async function storageGet(key){
+    if(firebaseReady) return FirestoreKV.get(key);
     return usingClaudePreviewStorage ? window.storage.get(key, true) : LocalDB.get(key);
   }
   async function storageSet(key, value){
+    if(firebaseReady) return FirestoreKV.set(key, value);
     return usingClaudePreviewStorage ? window.storage.set(key, value, true) : LocalDB.set(key, value);
   }
   async function storageDelete(key){
+    if(firebaseReady) return FirestoreKV.delete(key);
     return usingClaudePreviewStorage ? window.storage.delete(key, true) : LocalDB.delete(key);
+  }
+
+  /* ---------- visitor activity (shows in the admin "Visitor activity" tab) ---------- */
+  async function logVisitEvent(type, label){
+    if(!firebaseReady) return;
+    try{ await firestoreDB.collection('analytics_events').add({ type, label, ts: Date.now() }); }
+    catch(e){ /* never let logging break the page */ }
   }
 
   const DEFAULT_DATA = {
@@ -1012,6 +1093,11 @@
   }
   async function storeAsset(dataUrl){
     if(!dataUrl) return '';
+    if(dataUrl.length > MAX_ASSET_BYTES){
+      throw new Error(firebaseReady
+        ? 'That file is too large for the shared database (Firestore caps documents at 1MB) — try a smaller / more compressed file.'
+        : 'That file is too large — try a smaller file.');
+    }
     const id = newAssetId();
     const res = await storageSet('asset:'+id, dataUrl);
     if(!res) throw new Error('asset save failed');
@@ -1326,7 +1412,7 @@
   const TABS = [
     ['profile','Profile & about'],['education','Education'],['experience','Experience'],
     ['projects','Projects'],['certifications','Certifications'],['skills','Skills'],['activities','Activities'],
-    ['languages','Languages'],['connect','Connect / banners'],['gallery','Gallery']
+    ['languages','Languages'],['connect','Connect / banners'],['gallery','Gallery'],['analytics','Visitor activity']
   ];
   function initTabs(){
     document.getElementById('adminTabs').innerHTML = TABS.map(([id,label],i) =>
@@ -1338,8 +1424,35 @@
         document.querySelectorAll('.admin-tab-panel').forEach(p=>p.classList.remove('active'));
         btn.classList.add('active');
         document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+        if(btn.dataset.tab === 'analytics') loadAnalytics();
       });
     });
+  }
+  async function loadAnalytics(){
+    const summaryEl = document.getElementById('anaSummary');
+    const listEl = document.getElementById('anaList');
+    if(!summaryEl || !listEl) return;
+    if(!firebaseReady){
+      summaryEl.innerHTML = '<div class="empty-note">Not connected to a shared database yet — visitor activity can only be tracked once Firebase is set up (see the comment near the top of the code). Local-only storage has no way to see what other visitors do.</div>';
+      listEl.innerHTML = '';
+      return;
+    }
+    summaryEl.textContent = 'Loading…';
+    listEl.textContent = '';
+    try{
+      const snap = await firestoreDB.collection('analytics_events').orderBy('ts','desc').limit(300).get();
+      const events = snap.docs.map(d=>d.data());
+      const counts = {};
+      events.forEach(e=>{ const k = `${e.type}: ${e.label}`; counts[k] = (counts[k]||0)+1; });
+      const totalViews = events.filter(e=>e.type==='page_view').length;
+      const rows = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+      summaryEl.innerHTML = `<div class="side-val" style="margin-bottom:12px;">Page views (last ${events.length} logged events): <b>${totalViews}</b></div>` +
+        (rows.length ? rows.map(([k,v])=>`<div class="skill-manage-row"><div>${escapeHtml(k)}</div><div class="mono">${v}</div></div>`).join('') : '<div class="empty-note">No activity yet.</div>');
+      listEl.innerHTML = events.slice(0,50).map(e=>`<div class="skill-manage-row"><div>${escapeHtml(e.type)} — ${escapeHtml(e.label)}</div><div class="mono">${new Date(e.ts).toLocaleString('en-IN')}</div></div>`).join('') || '<div class="empty-note">No activity yet.</div>';
+    }catch(e){
+      summaryEl.innerHTML = '<div class="empty-note">Could not load activity — check that Firestore is created and its rules allow read access.</div>';
+      listEl.innerHTML = '';
+    }
   }
 
   function fillProfileForm(){
@@ -1399,8 +1512,10 @@
     const resumeInput = document.getElementById('p_resume_file');
     if(resumeInput.files && resumeInput.files[0]){
       const f = resumeInput.files[0];
-      if(f.size > 4.5 * 1024 * 1024){
-        msgEl.textContent = "That PDF is too large (max ~4.5MB) — try a smaller file.";
+      if(f.size > MAX_RESUME_BYTES){
+        msgEl.textContent = firebaseReady
+          ? "That PDF is too large for the shared database (~650KB max) — try compressing it."
+          : "That PDF is too large (max ~4.5MB) — try a smaller file.";
       } else {
         try{
           const dataUrl = await fileToDataURL(f);
@@ -1518,6 +1633,19 @@
 
   function renderAdmin(){
     fillProfileForm();
+    const statusEl = document.getElementById('storageStatus');
+    if(statusEl){
+      if(firebaseReady){
+        statusEl.textContent = 'Shared database connected — edits here are visible to every visitor, and visitor activity is being logged.';
+        statusEl.style.color = '#4ade80';
+      } else if(usingClaudePreviewStorage){
+        statusEl.textContent = 'Using Claude\'s preview storage (shared within this preview only).';
+        statusEl.style.color = 'var(--gold)';
+      } else {
+        statusEl.textContent = 'Local browser storage only — edits are saved on this browser but won\'t show for other visitors yet. Connect Firebase (see the comment near the top of the code) to make edits shared and enable visitor tracking.';
+        statusEl.style.color = 'var(--gold)';
+      }
+    }
 
     renderManageList('eduManage', data.education,
       [{key:'year',label:'Year'},{key:'degree',label:'Degree / course'},{key:'institution',label:'Institution'},{key:'detail',label:'Detail'},{key:'score',label:'Score'}],
@@ -1711,6 +1839,21 @@
     });
   }
   wireTilt();
+
+  /* visitor activity logging — only fires when a shared database is connected */
+  if(!isAdmin){ logVisitEvent('page_view', 'site'); }
+  document.querySelectorAll('.margin-nav a').forEach(a=>{
+    a.addEventListener('click', ()=> logVisitEvent('nav_click', a.getAttribute('href').replace('#','')));
+  });
+  document.getElementById('resumeBtn')?.addEventListener('click', ()=> logVisitEvent('cta_click', 'resume_download'));
+  document.addEventListener('click', (e)=>{
+    const projCard = e.target.closest('.project-card');
+    if(projCard){ logVisitEvent('cta_click', 'project: ' + (projCard.querySelector('.project-title')?.textContent || 'unknown')); }
+    const bannerCard = e.target.closest('.banner-card');
+    if(bannerCard){ logVisitEvent('cta_click', 'connect: ' + (bannerCard.querySelector('.banner-platform')?.textContent || 'unknown')); }
+    const socialDot = e.target.closest('.hero-social-dot');
+    if(socialDot){ logVisitEvent('cta_click', 'social: ' + (socialDot.getAttribute('title') || 'unknown')); }
+  });
 
     const clockEl = document.getElementById('termClock');
   if(clockEl){
