@@ -344,7 +344,6 @@
   /* section labels read as a website kicker, not a resume field number */
   .entry-head{ flex-direction:column; align-items:flex-start; gap:6px; position:relative; padding-bottom:16px; margin-bottom:34px; }
   .entry-num{ font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:var(--muted); order:-1; }
-  .entry-num::before{ content:'section · '; }
   .entry-title{ font-size:36px; letter-spacing:-.01em; }
   .entry-head::after{
     content:''; position:absolute; left:0; bottom:0; height:2px; width:64px;
@@ -414,10 +413,10 @@
 
   /* ticker strip under the hero contact row — a live-looking stat line built from real skill data */
   .hero-ticker-wrap{ margin-top:28px; border-top:1px solid var(--rule); border-bottom:1px solid var(--rule); overflow:hidden; position:relative; }
-  .hero-ticker-wrap::before{ content:'live'; position:absolute; left:0; top:0; bottom:0; display:flex; align-items:center;
+  .hero-ticker-wrap::before{ content:'|'; position:absolute; left:0; top:0; bottom:0; display:flex; align-items:center;
     padding:0 10px; background:var(--paper); font-family:'JetBrains Mono', monospace; font-size:10px; letter-spacing:.08em; color:var(--red); z-index:2; }
   .hero-ticker-wrap::after{ content:''; position:absolute; left:34px; top:0; bottom:0; width:24px; background:linear-gradient(90deg, var(--paper), transparent); z-index:2; }
-  .hero-ticker{ display:flex; width:max-content; padding:9px 0 9px 58px; animation:tickerScroll 22s linear infinite; }
+  .hero-ticker{ display:flex; width:max-content; padding:9px 0 9px 58px; animation:tickerScroll 25s linear infinite; }
   .hero-ticker span{ font-family:'JetBrains Mono', monospace; font-size:11.5px; color:var(--muted); white-space:nowrap; padding-right:28px; }
   .hero-ticker span::before{ content:'▴'; color:var(--ink-green); margin-right:8px; }
   .hero-ticker span.metric-item::before{ content:''; margin-right:0; }
@@ -564,10 +563,10 @@
         </div>
       </section>
 
-      <section class="entry" id="education">
+      <div class="entry" id="education">
         <div class="entry-head"><span class="entry-num"></span><span class="entry-title">Education</span></div>
         <div id="educationList"></div>
-      </section>
+      </div>
 
       <section class="entry" id="experience">
         <div class="entry-head"><span class="entry-num"></span><span class="entry-title">Experience</span></div>
@@ -577,12 +576,6 @@
       <section class="entry" id="projects">
         <div class="entry-head"><span class="entry-num"></span><span class="entry-title">Projects</span></div>
         <p class="lede">Things built end to end — the case for what I can do beyond a transcript.</p>
-        <div class="growth-chart" aria-hidden="true">
-          <svg viewBox="0 0 600 90" preserveAspectRatio="none">
-            <path class="growth-line" d="M0,72 L60,64 L120,68 L180,48 L240,52 L300,30 L360,36 L420,18 L480,22 L540,8 L600,12" />
-            <path class="growth-fill" d="M0,72 L60,64 L120,68 L180,48 L240,52 L300,30 L360,36 L420,18 L480,22 L540,8 L600,12 L600,90 L0,90 Z" />
-          </svg>
-        </div>
         <div class="project-grid" id="projectsGrid"></div>
       </section>
 
@@ -764,6 +757,15 @@
         </div>
       </div>
 
+      <div class="admin-tab-panel" id="tab-ticker">
+        <div class="panel-block">
+          <div class="panel-head"><h3>Live ticker</h3><p>The scrolling strip under the hero heading. Add any short text you want — not tied to the Skills list.</p></div>
+          <div id="tickerManage"></div>
+          <div class="skill-add-row"><input id="tickerInput" placeholder="Text to scroll (e.g. a skill, a stat, a tagline)"><button class="btn" onclick="addTickerItem()">Add</button></div>
+          <div class="save-msg" id="tickerMsg"></div>
+        </div>
+      </div>
+
       <div class="admin-tab-panel" id="tab-activities">
         <div class="panel-block">
           <div class="panel-head"><h3>Activities & publications</h3><p>Volunteering, seminars, editorial work, published books.</p></div>
@@ -924,50 +926,7 @@
   })();
   const usingClaudePreviewStorage = !!(window.storage && typeof window.storage.set === 'function');
 
-  /* ---------- shared database: real SQL (Postgres via Supabase) ----------
-     This connects the site to an actual SQL database, so admin edits are
-     stored in one shared place and show up for every visitor everywhere —
-     no matter which browser or device they're on. Supabase gives every
-     project a real Postgres database for free. One-time setup:
-
-       1. Go to https://supabase.com → sign in → "New project" (free tier).
-       2. Once it's created, open the SQL Editor (left sidebar) → "New query"
-          → paste in the SQL block below (between ===SQL START=== and
-          ===SQL END===) → Run. This creates the two tables the site needs.
-       3. Go to Project Settings → API. Copy the "Project URL" and the
-          "anon public" key → paste them into SUPABASE_CONFIG below.
-       4. Save this file and push it to your GitHub repo — the live
-          GitHub Pages link will now read/write the same shared database.
-
-     ===SQL START===
-     create table if not exists portfolio_kv (
-       key text primary key,
-       value text,
-       updated_at timestamptz not null default now()
-     );
-     create table if not exists portfolio_events (
-       id bigint generated always as identity primary key,
-       type text not null,
-       label text,
-       ts bigint not null
-     );
-     alter table portfolio_kv enable row level security;
-     alter table portfolio_events enable row level security;
-     -- Public can read the site's data (needed for the site to load) and
-     -- write it (needed because the admin login here is just a password
-     -- check inside this page's own JavaScript, not real server-side auth —
-     -- fine for a simple personal portfolio, but anyone with the anon key
-     -- could in theory write directly; keep the admin password private).
-     create policy "public read kv" on portfolio_kv for select using (true);
-     create policy "public write kv" on portfolio_kv for insert with check (true);
-     create policy "public update kv" on portfolio_kv for update using (true);
-     create policy "public delete kv" on portfolio_kv for delete using (true);
-     create policy "public read events" on portfolio_events for select using (true);
-     create policy "public write events" on portfolio_events for insert with check (true);
-     ===SQL END===
-
-     Until you do this, the site keeps working fine using local
-     browser-only storage (edits only show on the browser you edited from). */
+  /* ---------- shared database: real SQL (Postgres via Supabase) ----------*/
   const SUPABASE_CONFIG = {
     url: "https://wojtbtcbngymatunlpiq.supabase.co",
     anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndvanRidGNibmd5bWF0dW5scGlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk3NzY0MDAsImV4cCI6MjEwNTM1MjQwMH0.v5OQo5qZ05SsfuglJvSivI6udpfThZZZzA9-ZGVNPgE"
@@ -1059,6 +1018,7 @@
       { title:"Python Course for Beginners: Mastering the Essentials", issuer:"SCALER Topics", year:"", image:"" },
       { title:"Introduction to Commercial Banking and Fintech", issuer:"NPTEL (SWAYAM), IIT Kanpur", year:"Elite + Silver (82%)", image:"" }
     ],
+    ticker: ["MS Office", "HTML", "CSS", "Python", "Power BI", "OS settings & system components", "Event & editorial software tools"],
     skills: {
       technical: ["MS Office", "HTML", "CSS", "Python", "Power BI", "OS settings & system components", "Event & editorial software tools"],
       professional: ["Problem-solving", "Adaptability", "Team communication", "Self-motivated", "Goal-driven", "Empathetic"]
@@ -1435,7 +1395,7 @@
 
   const TABS = [
     ['profile','Profile & about'],['education','Education'],['experience','Experience'],
-    ['projects','Projects'],['certifications','Certifications'],['skills','Skills'],['activities','Activities'],
+    ['projects','Projects'],['certifications','Certifications'],['skills','Skills'],['ticker','Live ticker'],['activities','Activities'],
     ['languages','Languages'],['connect','Connect / banners'],['gallery','Gallery'],['analytics','Visitor activity']
   ];
   function initTabs(){
@@ -1656,6 +1616,27 @@
     persist(document.getElementById('skillMsg'));
   }
 
+  function renderTickerManage(){
+    const el = document.getElementById('tickerManage');
+    if(!el) return;
+    if(!Array.isArray(data.ticker)) data.ticker = [];
+    el.innerHTML = data.ticker.map((s,i) => `
+      <div class="skill-manage-row"><div>${escapeHtml(s)}</div><button class="btn danger" onclick="removeTickerItem(${i})">Remove</button></div>
+    `).join('') || '<div class="empty-note">Nothing added yet.</div>';
+  }
+  function addTickerItem(){
+    const inp = document.getElementById('tickerInput');
+    if(!inp.value.trim()) return;
+    if(!Array.isArray(data.ticker)) data.ticker = [];
+    data.ticker.push(inp.value.trim());
+    inp.value = '';
+    persist(document.getElementById('tickerMsg'));
+  }
+  function removeTickerItem(idx){
+    data.ticker.splice(idx,1);
+    persist(document.getElementById('tickerMsg'));
+  }
+
   function renderAdmin(){
     fillProfileForm();
     const statusEl = document.getElementById('storageStatus');
@@ -1689,6 +1670,7 @@
 
     renderSkillManage('techManage','technical');
     renderSkillManage('softManage','professional');
+    renderTickerManage();
 
     renderManageList('actManage', data.activities,
       [{key:'tag',label:'Tag'},{key:'title',label:'Title'},{key:'description',label:'Description',type:'textarea'}],
@@ -1761,14 +1743,11 @@
     const heroH1 = document.getElementById('heroName');
     if(heroH1) heroH1.classList.add('ready');
 
-    const techList = (data.skills && data.skills.technical) ? data.skills.technical : [];
-    const metricItems = (data.projects || []).filter(p => p.metric).map(p => ({ label:p.metric, sign:metricSign(p.metric) }));
+    const tickerItems = (data.ticker && data.ticker.length) ? data.ticker : ['portfolio','ledger','profile'];
     const tickerEl = document.getElementById('heroTicker');
     if(tickerEl){
-      const skillSpans = (techList.length ? techList : ['portfolio','ledger','profile']).map(s => `<span>${escapeHtml(s)}</span>`);
-      const metricSpans = metricItems.map(m => `<span class="metric-item ${m.sign}"><em>${m.sign==='down'?'▾':'▴'}</em>${escapeHtml(m.label)}</span>`);
-      const combined = skillSpans.concat(metricSpans);
-      const doubled = combined.concat(combined).concat(combined);
+      const skillSpans = tickerItems.map(s => `<span>${escapeHtml(s)}</span>`);
+      const doubled = skillSpans.concat(skillSpans).concat(skillSpans);
       tickerEl.innerHTML = doubled.join('');
     }
     if(typeof wireTilt === 'function') wireTilt();
