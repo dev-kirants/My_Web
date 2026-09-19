@@ -84,7 +84,7 @@
     font-family:'Fraunces', serif; font-weight:600; font-size:clamp(44px, 7.5vw, 80px);
     line-height:0.98; color:var(--ink-green); cursor:pointer; display:inline-block; position:relative;
   }
-  .hero h1 .u{ display:block; height:3px; background:transparent; margin-top:6px; transition:background .2s ease; }
+  .hero h1 .u{ position:absolute; left:0; right:0; bottom:-8px; height:3px; background:transparent; transition:background .2s ease; }
   .hero h1:hover .u{ background:var(--red); }
   .hero h1:hover{ color:var(--red-soft); }
   .hero-hint{ font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--muted); margin-top:8px; letter-spacing:0.02em; }
@@ -862,8 +862,7 @@
   <img id="lightboxImg" src="" alt="">
 </div>
 
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
   const ADMIN_USER = "Athishay";
   const ADMIN_PASS = "9663008044";
@@ -925,77 +924,102 @@
   })();
   const usingClaudePreviewStorage = !!(window.storage && typeof window.storage.set === 'function');
 
-  /* ---------- shared database (optional, recommended) ----------
-     Fill in your own FREE Firebase project's config below to make admin
-     edits show up for every visitor everywhere, and to enable the
-     "Visitor activity" tab in the admin panel. Steps:
-       1. Go to https://console.firebase.google.com → Add project (free).
-       2. In the project, click </> (Web app), register the app, copy the
-          firebaseConfig object it gives you, and paste its values below.
-       3. In the console go to Firestore Database → Create database
-          (start in "test mode" is simplest for a personal site) → pick a
-          region close to you.
-     Until you do this, the site keeps working fine using local
-     browser-only storage (edits only show on the browser you edited from).
-     Note: because the admin login here is just a password check inside
-     the page's own JavaScript (not real server-side auth), "test mode"
-     Firestore rules mean anyone could in theory write to your database
-     directly — acceptable for a simple personal portfolio, but worth
-     knowing. */
-  const FIREBASE_CONFIG = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
-  };
-  let firestoreDB = null;
-  let firebaseReady = false;
-  try{
-    if(FIREBASE_CONFIG.projectId && FIREBASE_CONFIG.projectId !== "YOUR_PROJECT_ID" && window.firebase){
-      firebase.initializeApp(FIREBASE_CONFIG);
-      firestoreDB = firebase.firestore();
-      firebaseReady = true;
-    }
-  }catch(e){ console.error('Firebase init failed', e); firebaseReady = false; }
+  /* ---------- shared database: real SQL (Postgres via Supabase) ----------
+     This connects the site to an actual SQL database, so admin edits are
+     stored in one shared place and show up for every visitor everywhere —
+     no matter which browser or device they're on. Supabase gives every
+     project a real Postgres database for free. One-time setup:
 
-  const FirestoreKV = {
+       1. Go to https://supabase.com → sign in → "New project" (free tier).
+       2. Once it's created, open the SQL Editor (left sidebar) → "New query"
+          → paste in the SQL block below (between ===SQL START=== and
+          ===SQL END===) → Run. This creates the two tables the site needs.
+       3. Go to Project Settings → API. Copy the "Project URL" and the
+          "anon public" key → paste them into SUPABASE_CONFIG below.
+       4. Save this file and push it to your GitHub repo — the live
+          GitHub Pages link will now read/write the same shared database.
+
+     ===SQL START===
+     create table if not exists portfolio_kv (
+       key text primary key,
+       value text,
+       updated_at timestamptz not null default now()
+     );
+     create table if not exists portfolio_events (
+       id bigint generated always as identity primary key,
+       type text not null,
+       label text,
+       ts bigint not null
+     );
+     alter table portfolio_kv enable row level security;
+     alter table portfolio_events enable row level security;
+     -- Public can read the site's data (needed for the site to load) and
+     -- write it (needed because the admin login here is just a password
+     -- check inside this page's own JavaScript, not real server-side auth —
+     -- fine for a simple personal portfolio, but anyone with the anon key
+     -- could in theory write directly; keep the admin password private).
+     create policy "public read kv" on portfolio_kv for select using (true);
+     create policy "public write kv" on portfolio_kv for insert with check (true);
+     create policy "public update kv" on portfolio_kv for update using (true);
+     create policy "public delete kv" on portfolio_kv for delete using (true);
+     create policy "public read events" on portfolio_events for select using (true);
+     create policy "public write events" on portfolio_events for insert with check (true);
+     ===SQL END===
+
+     Until you do this, the site keeps working fine using local
+     browser-only storage (edits only show on the browser you edited from). */
+  const SUPABASE_CONFIG = {
+    url: "YOUR_SUPABASE_PROJECT_URL",
+    anonKey: "YOUR_SUPABASE_ANON_KEY"
+  };
+  let supabaseClient = null;
+  let supabaseReady = false;
+  try{
+    if(SUPABASE_CONFIG.url && SUPABASE_CONFIG.url !== "YOUR_SUPABASE_PROJECT_URL" && window.supabase){
+      supabaseClient = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+      supabaseReady = true;
+    }
+  }catch(e){ console.error('Supabase init failed', e); supabaseReady = false; }
+
+  const SupabaseKV = {
     async get(key){
-      const doc = await firestoreDB.collection('kv').doc(key).get();
-      return doc.exists ? { key, value: doc.data().value } : null;
+      const { data: rows, error } = await supabaseClient.from('portfolio_kv').select('value').eq('key', key).maybeSingle();
+      if(error) throw error;
+      return rows ? { key, value: rows.value } : null;
     },
     async set(key, value){
-      await firestoreDB.collection('kv').doc(key).set({ value });
+      const { error } = await supabaseClient.from('portfolio_kv').upsert({ key, value, updated_at: new Date().toISOString() });
+      if(error) throw error;
       return { key, value };
     },
     async delete(key){
-      await firestoreDB.collection('kv').doc(key).delete();
+      const { error } = await supabaseClient.from('portfolio_kv').delete().eq('key', key);
+      if(error) throw error;
       return { key, deleted: true };
     }
   };
-  // Firestore documents are capped at 1MB each, tighter than local storage —
-  // large photos/PDFs need a smaller cap when a shared database is connected.
-  const MAX_ASSET_BYTES = firebaseReady ? 900 * 1024 : 20 * 1024 * 1024;
-  const MAX_RESUME_BYTES = firebaseReady ? 650 * 1024 : 4.5 * 1024 * 1024;
+  // Keep uploads well under typical API gateway body-size limits when a
+  // shared SQL database is connected; local-only storage can hold more.
+  const MAX_ASSET_BYTES = supabaseReady ? 1.5 * 1024 * 1024 : 20 * 1024 * 1024;
+  const MAX_RESUME_BYTES = supabaseReady ? 1.5 * 1024 * 1024 : 4.5 * 1024 * 1024;
 
   async function storageGet(key){
-    if(firebaseReady) return FirestoreKV.get(key);
+    if(supabaseReady) return SupabaseKV.get(key);
     return usingClaudePreviewStorage ? window.storage.get(key, true) : LocalDB.get(key);
   }
   async function storageSet(key, value){
-    if(firebaseReady) return FirestoreKV.set(key, value);
+    if(supabaseReady) return SupabaseKV.set(key, value);
     return usingClaudePreviewStorage ? window.storage.set(key, value, true) : LocalDB.set(key, value);
   }
   async function storageDelete(key){
-    if(firebaseReady) return FirestoreKV.delete(key);
+    if(supabaseReady) return SupabaseKV.delete(key);
     return usingClaudePreviewStorage ? window.storage.delete(key, true) : LocalDB.delete(key);
   }
 
   /* ---------- visitor activity (shows in the admin "Visitor activity" tab) ---------- */
   async function logVisitEvent(type, label){
-    if(!firebaseReady) return;
-    try{ await firestoreDB.collection('analytics_events').add({ type, label, ts: Date.now() }); }
+    if(!supabaseReady) return;
+    try{ await supabaseClient.from('portfolio_events').insert({ type, label, ts: Date.now() }); }
     catch(e){ /* never let logging break the page */ }
   }
 
@@ -1094,8 +1118,8 @@
   async function storeAsset(dataUrl){
     if(!dataUrl) return '';
     if(dataUrl.length > MAX_ASSET_BYTES){
-      throw new Error(firebaseReady
-        ? 'That file is too large for the shared database (Firestore caps documents at 1MB) — try a smaller / more compressed file.'
+      throw new Error(supabaseReady
+        ? 'That file is too large for the shared database — try a smaller / more compressed file.'
         : 'That file is too large — try a smaller file.');
     }
     const id = newAssetId();
@@ -1432,16 +1456,17 @@
     const summaryEl = document.getElementById('anaSummary');
     const listEl = document.getElementById('anaList');
     if(!summaryEl || !listEl) return;
-    if(!firebaseReady){
-      summaryEl.innerHTML = '<div class="empty-note">Not connected to a shared database yet — visitor activity can only be tracked once Firebase is set up (see the comment near the top of the code). Local-only storage has no way to see what other visitors do.</div>';
+    if(!supabaseReady){
+      summaryEl.innerHTML = '<div class="empty-note">Not connected to a shared database yet — visitor activity can only be tracked once Supabase is set up (see the comment near the top of the code). Local-only storage has no way to see what other visitors do.</div>';
       listEl.innerHTML = '';
       return;
     }
     summaryEl.textContent = 'Loading…';
     listEl.textContent = '';
     try{
-      const snap = await firestoreDB.collection('analytics_events').orderBy('ts','desc').limit(300).get();
-      const events = snap.docs.map(d=>d.data());
+      const { data: eventRows, error } = await supabaseClient.from('portfolio_events').select('type,label,ts').order('ts', { ascending:false }).limit(300);
+      if(error) throw error;
+      const events = eventRows || [];
       const counts = {};
       events.forEach(e=>{ const k = `${e.type}: ${e.label}`; counts[k] = (counts[k]||0)+1; });
       const totalViews = events.filter(e=>e.type==='page_view').length;
@@ -1450,7 +1475,7 @@
         (rows.length ? rows.map(([k,v])=>`<div class="skill-manage-row"><div>${escapeHtml(k)}</div><div class="mono">${v}</div></div>`).join('') : '<div class="empty-note">No activity yet.</div>');
       listEl.innerHTML = events.slice(0,50).map(e=>`<div class="skill-manage-row"><div>${escapeHtml(e.type)} — ${escapeHtml(e.label)}</div><div class="mono">${new Date(e.ts).toLocaleString('en-IN')}</div></div>`).join('') || '<div class="empty-note">No activity yet.</div>';
     }catch(e){
-      summaryEl.innerHTML = '<div class="empty-note">Could not load activity — check that Firestore is created and its rules allow read access.</div>';
+      summaryEl.innerHTML = '<div class="empty-note">Could not load activity — check that the portfolio_events table exists and its policies allow read access.</div>';
       listEl.innerHTML = '';
     }
   }
@@ -1513,8 +1538,8 @@
     if(resumeInput.files && resumeInput.files[0]){
       const f = resumeInput.files[0];
       if(f.size > MAX_RESUME_BYTES){
-        msgEl.textContent = firebaseReady
-          ? "That PDF is too large for the shared database (~650KB max) — try compressing it."
+        msgEl.textContent = supabaseReady
+          ? "That PDF is too large for the shared database (~1.5MB max) — try compressing it."
           : "That PDF is too large (max ~4.5MB) — try a smaller file.";
       } else {
         try{
@@ -1635,14 +1660,14 @@
     fillProfileForm();
     const statusEl = document.getElementById('storageStatus');
     if(statusEl){
-      if(firebaseReady){
-        statusEl.textContent = 'Shared database connected — edits here are visible to every visitor, and visitor activity is being logged.';
+      if(supabaseReady){
+        statusEl.textContent = 'Shared SQL database connected — edits here are visible to every visitor, and visitor activity is being logged.';
         statusEl.style.color = '#4ade80';
       } else if(usingClaudePreviewStorage){
         statusEl.textContent = 'Using Claude\'s preview storage (shared within this preview only).';
         statusEl.style.color = 'var(--gold)';
       } else {
-        statusEl.textContent = 'Local browser storage only — edits are saved on this browser but won\'t show for other visitors yet. Connect Firebase (see the comment near the top of the code) to make edits shared and enable visitor tracking.';
+        statusEl.textContent = 'Local browser storage only — edits are saved on this browser but won\'t show for other visitors yet. Connect Supabase (see the comment near the top of the code) to make edits shared and enable visitor tracking.';
         statusEl.style.color = 'var(--gold)';
       }
     }
