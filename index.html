@@ -121,12 +121,13 @@
 
   .exp-card{ border:1px solid var(--rule-strong); padding:26px; background:var(--paper-soft); display:grid; grid-template-columns:1fr auto; gap:20px; }
   @media(max-width:600px){ .exp-card{ grid-template-columns:1fr; } }
-  .exp-top{ display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:14px; }
+  .exp-top{ display:flex; flex-direction:column; gap:6px; margin-bottom:14px; }
   .exp-role{ font-family:'Fraunces', serif; font-weight:600; font-size:20px; color:var(--ink-green); }
   .exp-meta{ font-family:'JetBrains Mono', monospace; font-size:12.5px; color:var(--red); }
-  .exp-card p{ font-size:15.5px; color:var(--muted-soft); max-width:64ch; }
+  .exp-card p{ font-size:15.5px; color:var(--muted-soft); max-width:85ch; }
   .exp-card + .exp-card{ margin-top:20px; }
-  .exp-photo{ width:130px; height:130px; object-fit:cover; border:1px solid var(--rule-strong); cursor:pointer; }
+  .exp-photo{ width:150px; height:200px; object-fit:cover; border:1px solid var(--rule-strong); cursor:pointer; align-self:start; margin-top:20px; }
+  @media(max-width:600px){ .exp-photo{ margin-top:0; } }
 
   .cert-list{ display:flex; flex-direction:column; }
   .cert-row{ display:grid; grid-template-columns:44px 1fr auto; gap:16px; align-items:center; padding:14px 0; border-top:1px solid var(--rule); }
@@ -511,7 +512,7 @@
     <div class="margin-nav">
       <a href="#about">about</a>
       <a href="#education">education</a>
-      <a href="#"></a>
+      <a href="#experience">experience</a>
       <a href="#projects">projects</a>
       <a href="#certifications">certificates</a>
       <a href="#skills">skills</a>
@@ -568,9 +569,9 @@
         <div id="educationList"></div>
       </div>
 
-      <section class="entry" id="">
+      <section class="entry" id="experience">
         <div class="entry-head"><span class="entry-num"></span><span class="entry-title">Experience</span></div>
-        <div id="List"></div>
+        <div id="experienceList"></div>
       </section>
 
       <section class="entry" id="projects">
@@ -581,7 +582,7 @@
 
       <section class="entry" id="certifications">
         <div class="entry-head"><span class="entry-num"></span><span class="entry-title">Certifications</span></div>
-        <p class="lede">Kept current from the admin desk — new certificates are added here as they're completed.</p>
+        <p class="lede">.</p>
         <div class="cert-list" id="certList"></div>
       </section>
 
@@ -611,7 +612,7 @@
 
       <section class="entry" id="gallery">
         <div class="entry-head"><span class="entry-num"></span><span class="entry-title">Gallery & Verification Documents</span></div>
-        <p class="lede">College, school and other verification photos, kept up to date from the admin desk.</p>
+        <p class="lede">.</p>
         <div class="gallery-grid" id="galleryGrid"></div>
       </section>
 
@@ -622,6 +623,7 @@
             <div class="foot-note" id="footContact" style="margin-top:6px;"></div>
           </div>
           <div class="foot-note">last updated automatically from the admin desk</div>
+          <div class="foot-note">Designed and developed by Kiran T S</div>
         </div>
       </footer>
     </div>
@@ -707,7 +709,7 @@
         </div>
       </div>
 
-      <div class="admin-tab-panel" id="tab-">
+      <div class="admin-tab-panel" id="tab-experience">
         <div class="panel-block">
           <div class="panel-head"><h3>Experience</h3><p>Internships and jobs.</p></div>
           <div id="expManage"></div>
@@ -722,7 +724,7 @@
             </div>
             <div class="field"><label>Description</label><textarea id="add_exp_description" rows="3"></textarea></div>
             <div class="field"><label>Photo</label><input type="file" accept="image/*" id="add_exp_photo"></div>
-            <button class="btn" id="add_exp_btn">Add  entry</button>
+            <button class="btn" id="add_exp_btn">Add experience entry</button>
           </div>
         </div>
       </div>
@@ -993,7 +995,7 @@
       photo: "",
       degree: "B.Com, Bengaluru City University"
     },
-    about: "To secure a challenging role in a forward-thinking organization where I can leverage my technical and interpersonal skills, gain deeper insights into business operations and brand growth, and contribute meaningfully to team objectives in a fast-paced environment.\n\nAs a fresh graduate, I'm eager to learn, collaborate closely with d professionals, and treat every day as an opportunity for growth and skill-building.",
+    about: "To secure a challenging role in a forward-thinking organization where I can leverage my technical and interpersonal skills, gain deeper insights into business operations and brand growth, and contribute meaningfully to team objectives in a fast-paced environment.\n\nAs a fresh graduate, I'm eager to learn, collaborate closely with experienced professionals, and treat every day as an opportunity for growth and skill-building.",
     resume: { fileName: "", fileId: "" },
     education: [
       { year:"2025 – 2027", degree:"Master's Degree in Commerce — Specialization in FinTech", institution:"Bengaluru City University", detail:"Currently pursuing", score:"In progress", photo:"" },
@@ -1591,7 +1593,7 @@
           newItem[imageField.key] = '';
         }
       }
-      arr.push(newItem);
+      if(arr === data.education){ arr.unshift(newItem); } else { if(arr === data.education){ arr.unshift(newItem); } else { arr.push(newItem); } }
       fields.forEach(f=>{ document.getElementById(`${prefix}_${f.key}`).value = ''; });
       if(imageField) document.getElementById(`${prefix}_${imageField.formKey}`).value = '';
       await persist();
@@ -1837,7 +1839,7 @@
         const r = card.getBoundingClientRect();
         const px = (e.clientX - r.left) / r.width - 0.5;
         const py = (e.clientY - r.top) / r.height - 0.5;
-        card.style.transform = `perspective(700px) rotateX(${(-py*2).toFixed(2)}deg) rotateY(${(px*8).toFixed(2)}deg) translateY(-4px)`;
+        card.style.transform = `perspective(700px) rotateX(${(-py*6).toFixed(2)}deg) rotateY(${(px*8).toFixed(2)}deg) translateY(-4px)`;
       });
       card.addEventListener('mouseleave', ()=>{ card.style.transform = ''; });
     });
