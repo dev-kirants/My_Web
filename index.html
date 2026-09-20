@@ -511,7 +511,7 @@
     <div class="margin-nav">
       <a href="#about">about</a>
       <a href="#education">education</a>
-      <a href="#experience">experience</a>
+      <a href="#"></a>
       <a href="#projects">projects</a>
       <a href="#certifications">certificates</a>
       <a href="#skills">skills</a>
@@ -568,9 +568,9 @@
         <div id="educationList"></div>
       </div>
 
-      <section class="entry" id="experience">
+      <section class="entry" id="">
         <div class="entry-head"><span class="entry-num"></span><span class="entry-title">Experience</span></div>
-        <div id="experienceList"></div>
+        <div id="List"></div>
       </section>
 
       <section class="entry" id="projects">
@@ -707,7 +707,7 @@
         </div>
       </div>
 
-      <div class="admin-tab-panel" id="tab-experience">
+      <div class="admin-tab-panel" id="tab-">
         <div class="panel-block">
           <div class="panel-head"><h3>Experience</h3><p>Internships and jobs.</p></div>
           <div id="expManage"></div>
@@ -722,7 +722,7 @@
             </div>
             <div class="field"><label>Description</label><textarea id="add_exp_description" rows="3"></textarea></div>
             <div class="field"><label>Photo</label><input type="file" accept="image/*" id="add_exp_photo"></div>
-            <button class="btn" id="add_exp_btn">Add experience entry</button>
+            <button class="btn" id="add_exp_btn">Add  entry</button>
           </div>
         </div>
       </div>
@@ -993,7 +993,7 @@
       photo: "",
       degree: "B.Com, Bengaluru City University"
     },
-    about: "To secure a challenging role in a forward-thinking organization where I can leverage my technical and interpersonal skills, gain deeper insights into business operations and brand growth, and contribute meaningfully to team objectives in a fast-paced environment.\n\nAs a fresh graduate, I'm eager to learn, collaborate closely with experienced professionals, and treat every day as an opportunity for growth and skill-building.",
+    about: "To secure a challenging role in a forward-thinking organization where I can leverage my technical and interpersonal skills, gain deeper insights into business operations and brand growth, and contribute meaningfully to team objectives in a fast-paced environment.\n\nAs a fresh graduate, I'm eager to learn, collaborate closely with d professionals, and treat every day as an opportunity for growth and skill-building.",
     resume: { fileName: "", fileId: "" },
     education: [
       { year:"2025 – 2027", degree:"Master's Degree in Commerce — Specialization in FinTech", institution:"Bengaluru City University", detail:"Currently pursuing", score:"In progress", photo:"" },
@@ -1837,7 +1837,7 @@
         const r = card.getBoundingClientRect();
         const px = (e.clientX - r.left) / r.width - 0.5;
         const py = (e.clientY - r.top) / r.height - 0.5;
-        card.style.transform = `perspective(700px) rotateX(${(-py*6).toFixed(2)}deg) rotateY(${(px*8).toFixed(2)}deg) translateY(-4px)`;
+        card.style.transform = `perspective(700px) rotateX(${(-py*100).toFixed(2)}deg) rotateY(${(px*8).toFixed(2)}deg) translateY(-4px)`;
       });
       card.addEventListener('mouseleave', ()=>{ card.style.transform = ''; });
     });
