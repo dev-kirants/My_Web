@@ -1837,7 +1837,7 @@
         const r = card.getBoundingClientRect();
         const px = (e.clientX - r.left) / r.width - 0.5;
         const py = (e.clientY - r.top) / r.height - 0.5;
-        card.style.transform = `perspective(700px) rotateX(${(-py*6).toFixed(2)}deg) rotateY(${(px*8).toFixed(2)}deg) translateY(-4px)`;
+        card.style.transform = `perspective(700px) rotateX(${(-py*2).toFixed(2)}deg) rotateY(${(px*8).toFixed(2)}deg) translateY(-4px)`;
       });
       card.addEventListener('mouseleave', ()=>{ card.style.transform = ''; });
     });
