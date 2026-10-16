@@ -465,6 +465,63 @@
     .hero h1 .u, .hero h1::after, .margin-foot::after,
     section.entry, .hero, .hero-ticker, .lightbox.show img{ animation:none !important; transition:none !important; opacity:1 !important; transform:none !important; }
   }
+
+  /* ===== v3: attractive buttons & skill tags ===== */
+  .btn{ border-radius:999px; padding:11px 24px; font-weight:700; color:#0a0e1a;
+    background:linear-gradient(120deg, var(--ink-green), var(--ink-green-soft)); box-shadow:0 8px 20px -10px var(--ink-green);
+    transition:transform .2s ease, box-shadow .25s ease, filter .2s ease; }
+  .btn:hover{ background:linear-gradient(120deg, var(--red), var(--gold)); transform:translateY(-2px); box-shadow:0 12px 26px -10px var(--red); }
+  .btn.ghost{ background:transparent; color:var(--ink-green); box-shadow:none; }
+  .btn.ghost:hover{ background:linear-gradient(120deg, var(--ink-green), var(--ink-green-soft)); color:#0a0e1a; box-shadow:0 10px 24px -10px var(--ink-green); }
+  .btn.danger{ background:transparent; color:var(--red); box-shadow:none; }
+  .btn.danger:hover{ background:var(--red); color:#0a0e1a; }
+  .btn-cta{ border-radius:999px; padding:14px 26px; }
+  .btn-cta.primary{ box-shadow:0 10px 28px -10px var(--ink-green); }
+  .btn-cta.ghost{ backdrop-filter:blur(4px); background:rgba(111,168,255,.06); }
+  .admin-tab-btn{ border-radius:999px; transition:all .2s ease; }
+  .admin-tab-btn:hover{ border-color:var(--ink-green); color:var(--ink-green); transform:translateY(-1px); }
+  .banner-card{ border-radius:14px; box-shadow:0 10px 24px -14px var(--c1); transition:transform .25s ease, box-shadow .25s ease; }
+  .banner-card:hover{ transform:translateY(-4px); box-shadow:0 18px 32px -14px var(--c1); }
+  .project-go{ display:inline-flex; align-self:flex-start; margin:6px 20px 18px; padding:7px 14px; border-radius:999px; border:1px solid var(--ink-green); transition:all .2s ease; }
+  .project-card:hover .project-go{ background:var(--ink-green); color:#0a0e1a; }
+
+  .skill-group-title{ font-size:13px; display:flex; align-items:center; gap:10px; border-bottom:none; padding-bottom:0; }
+  .skill-group-title::after{ content:''; flex:1; height:1px; background:linear-gradient(90deg, var(--rule-strong), transparent); }
+  .skill-tags{ gap:12px; }
+  .skill-tag{
+    display:inline-flex; align-items:center; gap:9px; padding:9px 18px 9px 14px; font-size:14px; font-weight:500; border-radius:999px;
+    color:var(--ink); border:1px solid var(--rule-strong);
+    background:linear-gradient(135deg, rgba(111,168,255,.12), rgba(255,107,129,.08));
+    box-shadow:0 6px 16px -10px var(--ink-green); cursor:default;
+    transition:transform .25s cubic-bezier(.2,.7,.3,1), box-shadow .25s ease, border-color .25s ease, color .25s ease;
+  }
+  .skill-tag::after{ content:''; width:7px; height:7px; border-radius:50%; background:var(--ink-green); box-shadow:0 0 10px var(--ink-green); order:-1; transition:background .25s ease, box-shadow .25s ease; }
+  .skill-tag::before{ border-radius:999px; background:linear-gradient(120deg, var(--ink-green), var(--ink-green-soft)); }
+  .skill-tag:hover{ color:#0a0e1a; transform:translateY(-4px) scale(1.05); border-color:transparent; box-shadow:0 14px 26px -10px var(--ink-green); }
+  .skill-tag:hover::after{ background:#0a0e1a; box-shadow:none; }
+  #softSkills .skill-tag{ background:linear-gradient(135deg, rgba(255,107,129,.14), rgba(251,191,36,.08)); box-shadow:0 6px 16px -10px var(--red); }
+  #softSkills .skill-tag::after{ background:var(--red); box-shadow:0 0 10px var(--red); }
+  #softSkills .skill-tag::before{ background:linear-gradient(120deg, var(--red), var(--gold)); }
+  #softSkills .skill-tag:hover{ box-shadow:0 14px 26px -10px var(--red); }
+
+  /* ===== v3: certificates — image pinned to the right corner ===== */
+  .cert-list{ gap:14px; }
+  .cert-row{ grid-template-columns:44px 1fr auto auto; gap:18px; padding:16px 18px; border:1px solid var(--rule-strong); border-radius:12px; background:var(--paper-soft); }
+  .cert-row:first-child{ border-top:1px solid var(--rule-strong); }
+  .cert-row::before{ display:none; }
+  .cert-row:hover{ padding-left:18px; border-color:var(--ink-green); box-shadow:0 14px 28px -16px rgba(111,168,255,.45); transform:translateY(-2px); }
+  .cert-row{ transition:transform .25s ease, box-shadow .25s ease, border-color .25s ease; }
+  .cert-thumb{ grid-column:4; grid-row:1; justify-self:end; width:96px; height:68px; border-radius:8px; transition:transform .25s ease; }
+  .cert-thumb:hover{ transform:scale(1.06); }
+  .cert-no-img{ grid-column:4; width:96px; }
+  @media(max-width:640px){ .cert-row{ grid-template-columns:36px 1fr auto; } .cert-thumb{ grid-column:3; grid-row:1 / span 2; width:72px; height:52px; } .cert-year{ grid-column:2; } }
+
+  /* ===== v3: activity links ===== */
+  .extra-link{ display:inline-flex; align-items:center; gap:7px; margin-top:10px; padding:7px 15px; border-radius:999px; text-decoration:none;
+    font-family:'JetBrains Mono', monospace; font-size:11.5px; font-weight:600; color:var(--ink-green); border:1px solid var(--ink-green);
+    background:rgba(111,168,255,.07); transition:all .2s ease; }
+  .extra-link:hover{ background:linear-gradient(120deg, var(--ink-green), var(--ink-green-soft)); color:#0a0e1a; transform:translateY(-2px); box-shadow:0 10px 20px -10px var(--ink-green); }
+  .extra-item{ padding:4px 0; }
 </style>
 </head>
 
@@ -778,6 +835,7 @@
               <div class="field"><label>Title</label><input type="text" id="add_act_title"></div>
             </div>
             <div class="field"><label>Description</label><textarea id="add_act_description" rows="3"></textarea></div>
+            <div class="field-row"><div class="field"><label>Link (URL, optional)</label><input type="url" id="add_act_link" placeholder="https://..."></div><div class="field"><label>Link button text (optional)</label><input type="text" id="add_act_linkLabel" placeholder="e.g. Read more"></div></div>
             <div class="field"><label>Photo</label><input type="file" accept="image/*" id="add_act_photo"></div>
             <button class="btn" id="add_act_btn">Add activity</button>
           </div>
@@ -1349,9 +1407,10 @@
       const src = assetSrc(c.image);
       return `
       <div class="cert-row">
-        ${src ? `<img src="${src}" class="cert-thumb" onclick="openLightbox('${src}')">` : `<div class="cert-mark">${String(i+1).padStart(2,'0')}</div>`}
+        <div class="cert-mark">${String(i+1).padStart(2,'0')}</div>
         <div><div class="cert-title">${escapeHtml(c.title)}</div><div class="cert-issuer">${escapeHtml(c.issuer)}</div></div>
         <div class="cert-year">${escapeHtml(c.year)}</div>
+        ${src ? `<img src="${src}" class="cert-thumb" alt="Certificate" onclick="openLightbox('${src}')">` : ''}
       </div>
     `; }).join('') : '<div class="empty-note">No certifications listed yet.</div>';
 
@@ -1363,7 +1422,7 @@
       return `
       <div class="extra-item">
         <div class="extra-tag">${escapeHtml(a.tag)}</div>
-        <div class="extra-body"><div class="t">${escapeHtml(a.title)}</div><p>${escapeHtml(a.description)}</p></div>
+        <div class="extra-body"><div class="t">${escapeHtml(a.title)}</div><p>${escapeHtml(a.description)}</p>${a.link ? `<a class="extra-link" href="${escapeHtml(/^(https?:|mailto:)/i.test(a.link) ? a.link : 'https://'+a.link)}" target="_blank" rel="noopener">${escapeHtml(a.linkLabel || 'View link')} ↗</a>` : ''}</div>
         ${src ? `<img src="${src}" class="extra-thumb" onclick="openLightbox('${src}')">` : '<div></div>'}
       </div>
     `; }).join('') : '<div class="empty-note">Nothing added yet.</div>';
@@ -1675,9 +1734,9 @@
     renderTickerManage();
 
     renderManageList('actManage', data.activities,
-      [{key:'tag',label:'Tag'},{key:'title',label:'Title'},{key:'description',label:'Description',type:'textarea'}],
+      [{key:'tag',label:'Tag'},{key:'title',label:'Title'},{key:'description',label:'Description',type:'textarea'},{key:'link',label:'Link (URL, optional)'},{key:'linkLabel',label:'Link button text (optional)'}],
       {key:'image', label:'Photo'});
-    wireAddForm('add_act_btn', [{key:'tag'},{key:'title'},{key:'description'}], 'add_act', {key:'image', formKey:'photo'}, data.activities);
+    wireAddForm('add_act_btn', [{key:'tag'},{key:'title'},{key:'description'},{key:'link'},{key:'linkLabel'}], 'add_act', {key:'image', formKey:'photo'}, data.activities);
 
     renderManageList('langManage', data.languages, [{key:'name',label:'Language'},{key:'note',label:'Note'}], null);
     wireAddForm('add_lang_btn', [{key:'name'},{key:'note'}], 'add_lang', null, data.languages);
