@@ -934,7 +934,7 @@
 
       <div class="admin-tab-panel" id="tab-visitors">
         <div class="panel-block">
-          <div class="panel-head"><h3>Visitors</h3><p>Names visitors entered (or Guest with their browser if they skipped), newest first. Edit a name and press Save, or export the whole list.</p></div>
+          <div class="panel-head"><h3>Visitors</h3><p>Names visitors entered (or their browser, such as “Chrome on Windows #7K2F”, if they skipped), newest first. Edit a name and press Save, or export the whole list.</p></div>
           <div style="display:flex; gap:10px; flex-wrap:wrap;">
             <button class="btn ghost" onclick="loadVisitors()">Refresh</button>
             <button class="btn" onclick="exportVisitors('xlsx')">Excel</button>
@@ -1106,81 +1106,51 @@
   }
 
   /* ---------- visitor activity (shows in the admin "Visitor activity" tab) ---------- */
+  /* no name typed: identify the visitor by their browser + a short id kept in that browser */
+  function browserVisitorName(){
+    let id = '';
+    try{
+      id = localStorage.getItem('visitor_id') || '';
+      if(!id){ id = Math.random().toString(36).slice(2,6).toUpperCase(); localStorage.setItem('visitor_id', id); }
+    }catch(e){}
+    return detectBrowser() + (id ? ' #' + id : '');
+  }
+  function currentVisitorTag(){
+    let n = '';
+    try{ n = localStorage.getItem('visitor_name') || ''; }catch(e){}
+    return (n || browserVisitorName()).replace(/\|\|/g,'') + '||' + detectBrowser();
+  }
   async function logVisitEvent(type, label){
     if(!supabaseReady) return;
-    try{ await supabaseClient.from('portfolio_events').insert({ type, label, ts: Date.now() }); }
-    catch(e){ /* never let logging break the page */ }
+    if(type !== 'visitor') label = String(label||'').replace(/\|\|/g,'') + '||' + currentVisitorTag();
+    try{
+      const { error } = await supabaseClient.from('portfolio_events').insert({ type, label, ts: Date.now() });
+      if(error) console.error('Visitor log failed (' + type + '):', error.message || error);
+    }catch(e){ /* never let logging break the page */ }
   }
 
   const DEFAULT_DATA = {
     profile: {
       name: "Kiran T S",
-      tagline: "A fresh B.Com graduate from Bengaluru, learning fast across operations, digital tools and editorial work.",
-      phone: "9663008044",
-      email: "Kirants0504@gmail.com",
-      location: "Bengaluru, India",
-      linkedin: "https://www.linkedin.com/in/kiran-t-s-252997377",
+      tagline: "",
+      phone: "",
+      email: "",
+      location: "",
+      linkedin: "",
       photo: "",
-      degree: "B.Com, Bengaluru City University"
+      degree: ""
     },
-    about: "To secure a challenging role in a forward-thinking organization where I can leverage my technical and interpersonal skills, gain deeper insights into business operations and brand growth, and contribute meaningfully to team objectives in a fast-paced environment.\n\nAs a fresh graduate, I'm eager to learn, collaborate closely with experienced professionals, and treat every day as an opportunity for growth and skill-building.",
+    about: "",
     resume: { fileName: "", fileId: "" },
-    education: [
-      { year:"2025 – 2027", degree:"Master's Degree in Commerce — Specialization in FinTech", institution:"Bengaluru City University", detail:"Currently pursuing", score:"In progress", photo:"" },
-      { year:"2025", degree:"Bachelor's Degree in Commerce", institution:"Bengaluru City University", detail:"", score:"CGPA 9.08", photo:"" },
-      { year:"2022", degree:"Pre-University Education", institution:"Sir M Visvesvaraya P U College", detail:"Commerce, EBACs", score:"94.83%", photo:"" },
-      { year:"2020", degree:"SSLC", institution:"Sir M Visvesvaraya High School", detail:"", score:"87.04%", photo:"" }
-    ],
-    experience: [
-      { role:"Operations Intern", org:"Brand Ignition Co", period:"05 Aug 2024 – 31 Aug 2024", location:"Bengaluru",
-        description:"During a four-week internship, collaborated closely with the operations team, actively involved in streamlining processes to enhance efficiency and performance. The experience sharpened problem-solving and communication skills, gave exposure to cross-functional teamwork, and deepened understanding of how startups coordinate their efforts — along with how brand acceleration strategies and e-commerce platforms operate behind the scenes. Findings were formalised into a report submitted to Bengaluru City University in partial fulfilment of the B.Com degree.",
-        photo:"" }
-    ],
-    certifications: [
-      { title:"TCS iON Career Edge – Young Professional", issuer:"TCS iON", year:"", image:"" },
-      { title:"Accounting Fundamentals", issuer:"TCS iON", year:"", image:"" },
-      { title:"Introduction to Digital Marketing", issuer:"Great Learning", year:"", image:"" },
-      { title:"Introduction to Digital Marketing and Strategies", issuer:"Simplilearn", year:"", image:"" },
-      { title:"Digital Productivity", issuer:"NIIT Foundation", year:"", image:"" },
-      { title:"Cyber Hygiene Practices", issuer:"Ministry of Electronics and Information Technology", year:"", image:"" },
-      { title:"Cybersecurity for Businesses", issuer:"CodeRed", year:"", image:"" },
-      { title:"Excel using AI — One-Day Workshop", issuer:"Office Master", year:"", image:"" },
-      { title:"Python Course for Beginners: Mastering the Essentials", issuer:"SCALER Topics", year:"", image:"" },
-      { title:"Introduction to Commercial Banking and Fintech", issuer:"NPTEL (SWAYAM), IIT Kanpur", year:"Elite + Silver (82%)", image:"" }
-    ],
-    ticker: ["MS Office", "HTML", "CSS", "Python", "Power BI", "OS settings & system components", "Event & editorial software tools"],
-    skills: {
-      technical: ["MS Office", "HTML", "CSS", "Python", "Power BI", "OS settings & system components", "Event & editorial software tools"],
-      professional: ["Problem-solving", "Adaptability", "Team communication", "Self-motivated", "Goal-driven", "Empathetic"]
-    },
-    activities: [
-      { tag:"Sep 2022", title:"Volunteer, Bharath @75 National Conference",
-        description:"Contributed to organising a national event with Tantrika Mahavidyalaya Shikshak Sangh, in collaboration with Bengaluru City University and Bengaluru North University — reflecting organisational skills, teamwork and dedication to community service.", image:"" },
-      { tag:"Seminar", title:"State-Level Seminar — \"Transformation for the Nation\"",
-        description:"Organised by Vishwanava Yuva Vedike and Queens Global Management Solutions; gained insights into transformative initiatives and policies aimed at national development.", image:"" },
-      { tag:"Sep 2025", title:"Author & Editor — ರಾಜಧಾನಿಯ ನುಡಿ (Rajadhaniya Nudi)",
-        description:"Contributed as both author and editor, demonstrating creative initiative, editorial expertise and cultural engagement. ISBN 978-93-344-1481-3.", image:"" },
-      { tag:"Ongoing", title:"Editor, College Newsletter Committee",
-        description:"Directed content creation and editing efforts — strong communication and meticulous attention to detail.", image:"" },
-      { tag:"Ongoing", title:"Founder, department technical team",
-        description:"Established and managed a technical team within the department, building project management and leadership capability.", image:"" },
-      { tag:"Nov 2025", title:"Webinar — Data Analytics & the Future of Wealth Management",
-        description:"Organised by IKSA Education. Explored the strategic importance of data-driven decision-making across modern industries, and analysed how AI and robotics are transforming wealth management through personalised advisory, automated portfolio rebalancing and real-time risk assessment.", image:"" },
-      { tag:"Mar 2026", title:"Participant, Intercollege Fest — Brand Race",
-        description:"At BMS College of Law: executed a rapid-fire marketing strategy for a consumer food product (Papad) under strict time constraints, showcasing creative branding, positioning and pitch delivery under pressure.", image:"" }
-    ],
-    languages: [
-      { name:"Kannada", note:"read · write · speak" },
-      { name:"English", note:"read · write · speak" },
-      { name:"Hindi", note:"read · write · speak" }
-    ],
-    projects: [
-      { title:"Portfolio & Admin Ledger", tagline:"Self-built single-file site with a live admin desk", stack:"HTML · CSS · JS", metric:"+100% self-managed", link:"", image:"" }
-    ],
-    socials: [
-      { platform:"LinkedIn", handle:"kiran-t-s-252997377", url:"https://www.linkedin.com/in/kiran-t-s-252997377" },
-      { platform:"Email", handle:"Kirants0504@gmail.com", url:"mailto:Kirants0504@gmail.com" }
-    ]
+    education: [],
+    experience: [],
+    certifications: [],
+    ticker: [],
+    skills: { technical: [], professional: [] },
+    activities: [],
+    languages: [],
+    projects: [],
+    socials: []
   };
 
   let data = JSON.parse(JSON.stringify(DEFAULT_DATA));
@@ -1434,18 +1404,18 @@
     }
 
     document.getElementById('heroContact').innerHTML = `
-      <a href="tel:${escapeHtml(p.phone)}">
+      ${p.phone ? `<a href="tel:${escapeHtml(p.phone)}">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.9 21 3 13.1 3 3.9c0-.6.4-1 1-1h3.4c.6 0 1 .4 1 1 0 1.2.2 2.5.6 3.6.1.4 0 .8-.2 1L6.6 10.8Z"/></svg>
         ${escapeHtml(p.phone)}
-      </a>
-      <a href="mailto:${escapeHtml(p.email)}">
+      </a>` : ''}
+      ${p.email ? `<a href="mailto:${escapeHtml(p.email)}">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="1.5"/><path d="m3.5 6 8.5 7 8.5-7"/></svg>
         ${escapeHtml(p.email)}
-      </a>
-      <span>
+      </a>` : ''}
+      ${p.location ? `<span>
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.1 7-11.5A7 7 0 0 0 5 9.5C5 14.9 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.3"/></svg>
         ${escapeHtml(p.location)}
-      </span>
+      </span>` : ''}
       ${p.linkedin ? `<a href="${escapeHtml(p.linkedin)}" target="_blank" rel="noopener">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 10v7M8 7.2v.01M12 17v-4.5c0-1.4 1-2.5 2.3-2.5s2.2 1 2.2 2.5V17"/></svg>
         LinkedIn
@@ -1537,7 +1507,7 @@
     `; }).join('') : '<div class="empty-note">No links added yet.</div>';
 
     document.getElementById('footName').textContent = p.name;
-    document.getElementById('footContact').textContent = `${p.email} · ${p.phone} · ${p.location}`;
+    document.getElementById('footContact').textContent = [p.email, p.phone, p.location].filter(Boolean).join(' · ');
   }
 
   const TABS = [
@@ -1560,6 +1530,14 @@
       });
     });
   }
+  function splitActivityLabel(label){
+    const p = String(label||'').split('||');
+    return { detail:p[0]||'', name:p[1]||'', browser:p[2]||'' };
+  }
+  function activityLine(e){
+    const a = splitActivityLabel(e.label);
+    return `<b>${escapeHtml(a.name || 'Unknown visitor')}</b>${(a.browser && a.name.indexOf(a.browser) !== 0) ? ' (' + escapeHtml(a.browser) + ')' : ''} : ${escapeHtml(e.type)} — ${escapeHtml(a.detail)}`;
+  }
   async function loadAnalytics(){
     const summaryEl = document.getElementById('anaSummary');
     const listEl = document.getElementById('anaList');
@@ -1576,12 +1554,12 @@
       if(error) throw error;
       const events = eventRows || [];
       const counts = {};
-      events.forEach(e=>{ const k = `${e.type}: ${e.label}`; counts[k] = (counts[k]||0)+1; });
+      events.forEach(e=>{ const k = `${e.type}: ${splitActivityLabel(e.label).detail}`; counts[k] = (counts[k]||0)+1; });
       const totalViews = events.filter(e=>e.type==='page_view').length;
       const rows = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
       summaryEl.innerHTML = `<div class="side-val" style="margin-bottom:12px;">Page views (last ${events.length} logged events): <b>${totalViews}</b></div>` +
         (rows.length ? rows.map(([k,v])=>`<div class="skill-manage-row"><div>${escapeHtml(k)}</div><div class="mono">${v}</div></div>`).join('') : '<div class="empty-note">No activity yet.</div>');
-      listEl.innerHTML = events.slice(0,50).map(e=>`<div class="skill-manage-row"><div>${escapeHtml(e.type)} — ${escapeHtml(e.label)}</div><div style="display:flex; gap:10px; align-items:center;"><span class="mono">${new Date(e.ts).toLocaleString('en-IN')}</span><button class="btn danger" onclick="deleteEvent('${escapeHtml(e.type)}', ${e.ts})">Delete</button></div></div>`).join('') || '<div class="empty-note">No activity yet.</div>';
+      listEl.innerHTML = events.slice(0,50).map(e=>`<div class="skill-manage-row"><div>${activityLine(e)}</div><div style="display:flex; gap:10px; align-items:center;"><span class="mono">${new Date(e.ts).toLocaleString('en-IN')}</span><button class="btn danger" onclick="deleteEvent('${escapeHtml(e.type)}', ${e.ts})">Delete</button></div></div>`).join('') || '<div class="empty-note">No activity yet.</div>';
     }catch(e){
       summaryEl.innerHTML = '<div class="empty-note">Could not load activity — check that the portfolio_events table exists and its policies allow read access.</div>';
       listEl.innerHTML = '';
@@ -1915,6 +1893,12 @@
     return i < 0 ? { name:String(label||''), browser:'' } : { name:label.slice(0,i), browser:label.slice(i+2) };
   }
   function getStoredVisitorName(){ try{ return localStorage.getItem('visitor_name') || ''; }catch(e){ return ''; } }
+  let pageViewLogged = false;
+  function logPageViewOnce(){
+    if(pageViewLogged || isAdmin) return;
+    pageViewLogged = true;
+    logVisitEvent('page_view', 'site');
+  }
   function submitVisitorName(){
     const name = document.getElementById('vnameInput').value.trim().slice(0,60);
     if(!name){ document.getElementById('vnameInput').focus(); return; }
@@ -1922,10 +1906,12 @@
     document.getElementById('vnameOverlay').classList.remove('show');
     try{ sessionStorage.setItem('visitor_logged','1'); }catch(e){}
     logVisitEvent('visitor', name.replace(/\|\|/g,'') + '||' + detectBrowser());
+    logPageViewOnce();
   }
   function skipVisitorName(){
     try{ sessionStorage.setItem('visitor_skipped','1'); sessionStorage.setItem('visitor_logged','1'); }catch(e){}
-    logVisitEvent('visitor', 'Guest||' + detectBrowser());
+    logVisitEvent('visitor', browserVisitorName() + '||' + detectBrowser());
+    logPageViewOnce();
     document.getElementById('vnameOverlay').classList.remove('show');
   }
   function maybeAskVisitorName(){
@@ -1933,12 +1919,14 @@
     const known = getStoredVisitorName();
     if(known){
       /* returning visitor: log their saved name + browser once per session */
-      try{ if(sessionStorage.getItem('visitor_logged')) return; sessionStorage.setItem('visitor_logged','1'); }catch(e){}
+      try{ if(sessionStorage.getItem('visitor_logged')){ logPageViewOnce(); return; } sessionStorage.setItem('visitor_logged','1'); }catch(e){}
       logVisitEvent('visitor', known.replace(/\|\|/g,'') + '||' + detectBrowser());
+      logPageViewOnce();
       return;
     }
-    try{ if(sessionStorage.getItem('visitor_skipped')) return; }catch(e){}
+    try{ if(sessionStorage.getItem('visitor_skipped')){ logPageViewOnce(); return; } }catch(e){}
     document.getElementById('vnameOverlay').classList.add('show');
+    setTimeout(logPageViewOnce, 20000);
     setTimeout(()=>document.getElementById('vnameInput').focus(), 100);
   }
   document.getElementById('vnameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') submitVisitorName(); });
@@ -2124,7 +2112,7 @@
   /* ---------- visitor activity: export / print / delete ---------- */
   async function activityRows(){
     const all = await fetchAllEvents('activity');
-    return all.map((r,i)=>({ 'No': i+1, 'Type': r.type, 'Detail': r.label, 'Time': new Date(r.ts).toLocaleString('en-IN') }));
+    return all.map((r,i)=>{ const a = splitActivityLabel(r.label); return { 'No': i+1, 'Visitor': a.name || 'Unknown visitor', 'Browser': a.browser, 'Activity': r.type + ' — ' + a.detail, 'Time': new Date(r.ts).toLocaleString('en-IN') }; });
   }
   async function exportActivity(fmt){
     const msgEl = document.getElementById('anaMsg');
@@ -2282,9 +2270,10 @@
     const heroH1 = document.getElementById('heroName');
     if(heroH1) heroH1.classList.add('ready');
 
-    const tickerItems = (data.ticker && data.ticker.length) ? data.ticker : ['portfolio','ledger','profile'];
+    const tickerItems = (data.ticker && data.ticker.length) ? data.ticker : [];
     const tickerEl = document.getElementById('heroTicker');
-    if(tickerEl){
+    if(tickerEl && tickerEl.parentElement) tickerEl.parentElement.style.display = tickerItems.length ? '' : 'none';
+    if(tickerEl && tickerItems.length){
       const skillSpans = tickerItems.map(s => `<span>${escapeHtml(s)}</span>`);
       const doubled = skillSpans.concat(skillSpans).concat(skillSpans);
       tickerEl.innerHTML = doubled.join('');
@@ -2384,7 +2373,7 @@
   wireTilt();
 
   /* visitor activity logging — only fires when a shared database is connected */
-  if(!isAdmin){ logVisitEvent('page_view', 'site'); maybeAskVisitorName(); }
+  if(!isAdmin){ maybeAskVisitorName(); }
   document.querySelectorAll('.margin-nav a').forEach(a=>{
     a.addEventListener('click', ()=> logVisitEvent('nav_click', a.getAttribute('href').replace('#','')));
   });
