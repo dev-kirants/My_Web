@@ -160,10 +160,6 @@
   .lang-item{ font-family:'Fraunces', serif; font-size:19px; color:var(--ink-green); }
   .lang-item span{ display:block; font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--muted); margin-top:4px; }
 
-  .gallery-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(190px,1fr)); gap:16px; }
-  .gallery-card{ border:1px solid var(--rule-strong); background:var(--paper-soft); }
-  .gallery-card img{ width:100%; height:150px; object-fit:cover; cursor:pointer; }
-  .gallery-cap{ padding:10px 12px; font-family:'JetBrains Mono', monospace; font-size:11.5px; color:var(--muted); }
 
   footer{ padding:50px 0 60px; }
   .foot-grid{ display:flex; justify-content:space-between; flex-wrap:wrap; gap:20px; align-items:flex-end; }
@@ -440,11 +436,9 @@
   .ledger-row:hover, .cert-row:hover, .extra-item:hover{ padding-left:14px; }
   .ledger-row:hover .name, .cert-row:hover .cert-title{ color:var(--red-soft); }
 
-  /* exp-card, gallery-card: paper lifts slightly off the desk */
-  .exp-card, .gallery-card{ transition:transform .25s cubic-bezier(.2,.7,.3,1), box-shadow .25s ease; }
-  .exp-card:hover, .gallery-card:hover{ transform:translateY(-4px); box-shadow:0 16px 34px -14px rgba(0,0,0,.55), 0 0 0 1px var(--rule-strong), 0 0 24px -8px rgba(111,168,255,.25); }
-  .gallery-card img{ transition:transform .4s ease; }
-  .gallery-card:hover img{ transform:scale(1.05); }
+  /* exp-card: paper lifts slightly off the desk */
+  .exp-card{ transition:transform .25s cubic-bezier(.2,.7,.3,1), box-shadow .25s ease; }
+  .exp-card:hover{ transform:translateY(-4px); box-shadow:0 16px 34px -14px rgba(0,0,0,.55), 0 0 0 1px var(--rule-strong), 0 0 24px -8px rgba(111,168,255,.25); }
 
   /* skill tags: an ink-fill sweep on hover, like a highlighter stamping a filed tag */
   .skill-tag{ position:relative; overflow:hidden; z-index:0; transition:color .25s ease .05s; }
@@ -545,6 +539,23 @@
   }
   .act-link svg{ width:13px; height:13px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
   .act-link:hover{ background:var(--ink-green); color:var(--paper); transform:translateY(-2px); box-shadow:0 10px 20px -12px rgba(111,168,255,.8); }
+  /* visitor name prompt */
+  .vname-overlay{ position:fixed; inset:0; z-index:900; background:rgba(5,8,16,.82); display:none; align-items:center; justify-content:center; padding:24px; }
+  .vname-overlay.show{ display:flex; }
+  .vname-box{ width:100%; max-width:380px; background:var(--paper-soft); border:1px solid var(--rule-strong); border-radius:14px; padding:28px; }
+  .vname-box h3{ font-family:'Fraunces', serif; font-size:24px; color:var(--ink-green); margin-bottom:6px; }
+  .vname-box p{ font-size:13.5px; color:var(--muted-soft); margin-bottom:18px; }
+  .vname-box input{ width:100%; padding:11px 12px; border:1px solid var(--rule-strong); background:var(--paper); color:var(--ink); font-size:14px; border-radius:8px; margin-bottom:14px; }
+  .vname-actions{ display:flex; gap:10px; }
+  /* visitors table */
+  .vis-row{ display:grid; grid-template-columns:36px 1fr auto auto; gap:12px; align-items:center; padding:10px 0; border-bottom:1px solid var(--rule); }
+  .vis-row input{ width:100%; padding:8px 10px; border:1px solid var(--rule-strong); background:var(--paper); color:var(--ink); font-size:13.5px; border-radius:6px; }
+  .vis-time{ font-family:'JetBrains Mono', monospace; font-size:11.5px; color:var(--muted); white-space:nowrap; }
+  .vis-num{ font-family:'JetBrains Mono', monospace; font-size:11.5px; color:var(--muted); }
+  .vis-pager{ display:flex; align-items:center; gap:12px; margin-top:18px; flex-wrap:wrap; }
+  .vis-pager .info{ font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--muted); }
+  .btn[disabled]{ opacity:.4; cursor:not-allowed; }
+  @media(max-width:620px){ .vis-row{ grid-template-columns:28px 1fr auto; } .vis-time{ grid-column:2 / 4; } }
 </style>
 </head>
 
@@ -598,7 +609,6 @@
       <a href="#skills">skills</a>
       <a href="#extra">activities</a>
       <a href="#connect">connect</a>
-      <a href="#gallery">gallery</a>
      </div>
     <button class="brand" onclick="goAdmin()" title="Admin access">KTS</button>
     </nav>
@@ -688,12 +698,6 @@
         <div class="entry-head"><span class="entry-num"></span><span class="entry-title">Connect</span></div>
         <p class="lede">Reach out directly — every link below goes straight to a live profile.</p>
         <div class="banner-grid" id="connectGrid"></div>
-      </section>
-
-      <section class="entry" id="gallery">
-        <div class="entry-head"><span class="entry-num"></span><span class="entry-title">Gallery & Verification Documents</span></div>
-        <p class="lede">.</p>
-        <div class="gallery-grid" id="galleryGrid"></div>
       </section>
 
       <footer id="contact">
@@ -914,14 +918,37 @@
         </div>
       </div>
 
-      <div class="admin-tab-panel" id="tab-gallery">
+      <div class="admin-tab-panel" id="tab-data">
         <div class="panel-block">
-          <div class="panel-head"><h3>Gallery & verification documents</h3><p>College and school photos, ID or verification documents.</p></div>
-          <div id="galManage"></div>
-          <div class="add-form-block">
-            <div class="field"><label>Caption</label><input type="text" id="add_gal_caption"></div>
-            <div class="field"><label>Image</label><input type="file" accept="image/*" id="add_gal_image"></div>
-            <button class="btn" id="add_gal_btn">Add to gallery</button>
+          <div class="panel-head"><h3>Export site data</h3><p>JSON is the full backup (text plus photos, certificates and the resume). Excel holds the text content of every section only; photos stay as they are on the site.</p></div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;"><button class="btn" onclick="exportSiteData()">Export JSON (full)</button><button class="btn ghost" onclick="exportSiteExcel()">Export Excel (.xlsx)</button></div>
+          <div class="save-msg" id="exportMsg"></div>
+        </div>
+        <div class="panel-block">
+          <div class="panel-head"><h3>Import site data</h3><p>Choose a .json or .xlsx file made with Export. This replaces the current portfolio text content (a JSON backup also restores photos).</p></div>
+          <div class="field"><input type="file" accept=".json,.xlsx,.xls,application/json" id="importFile"></div>
+          <button class="btn ghost" onclick="importSiteData()">Import backup</button>
+          <div class="save-msg" id="importMsg"></div>
+        </div>
+      </div>
+
+      <div class="admin-tab-panel" id="tab-visitors">
+        <div class="panel-block">
+          <div class="panel-head"><h3>Visitors</h3><p>Names visitors entered (or Guest with their browser if they skipped), newest first. Edit a name and press Save, or export the whole list.</p></div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button class="btn ghost" onclick="loadVisitors()">Refresh</button>
+            <button class="btn" onclick="exportVisitors('xlsx')">Excel</button>
+            <button class="btn ghost" onclick="exportVisitors('csv')">CSV</button>
+            <button class="btn ghost" onclick="exportVisitors('json')">JSON</button>
+            <button class="btn ghost" onclick="printVisitors()">Print</button>
+            <button class="btn danger" onclick="deleteAllVisitors()">Delete all visitors</button>
+          </div>
+          <div class="save-msg" id="visMsg"></div>
+          <div id="visList" style="margin-top:14px;"></div>
+          <div class="vis-pager">
+            <button class="btn ghost" id="visPrev" onclick="visGo(-1)">&larr; Previous</button>
+            <span class="info" id="visInfo"></span>
+            <button class="btn" id="visNext" onclick="visGo(1)">Next entries &rarr;</button>
           </div>
         </div>
       </div>
@@ -929,7 +956,15 @@
       <div class="admin-tab-panel" id="tab-analytics">
         <div class="panel-block">
           <div class="panel-head"><h3>Visitor activity</h3><p>Every page view and click on the live site, pulled from the shared database.</p></div>
-          <button class="btn ghost" onclick="loadAnalytics()">Refresh</button>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button class="btn ghost" onclick="loadAnalytics()">Refresh</button>
+            <button class="btn" onclick="exportActivity('xlsx')">Excel</button>
+            <button class="btn ghost" onclick="exportActivity('csv')">CSV</button>
+            <button class="btn ghost" onclick="exportActivity('json')">JSON</button>
+            <button class="btn ghost" onclick="printActivity()">Print</button>
+            <button class="btn danger" onclick="deleteAllActivity()">Delete all activity</button>
+          </div>
+          <div class="save-msg" id="anaMsg"></div>
           <div id="anaSummary" style="margin-top:16px;"></div>
         </div>
         <div class="panel-block">
@@ -938,6 +973,18 @@
         </div>
       </div>
 
+    </div>
+  </div>
+</div>
+
+<div class="vname-overlay" id="vnameOverlay">
+  <div class="vname-box">
+    <h3>Welcome</h3>
+    <p>May I know your name? It only helps the portfolio owner see who visited.</p>
+    <input type="text" id="vnameInput" maxlength="60" placeholder="Your name" autocomplete="name">
+    <div class="vname-actions">
+      <button class="btn" onclick="submitVisitorName()">Continue</button>
+      <button class="btn ghost" onclick="skipVisitorName()">Skip</button>
     </div>
   </div>
 </div>
@@ -1133,8 +1180,7 @@
     socials: [
       { platform:"LinkedIn", handle:"kiran-t-s-252997377", url:"https://www.linkedin.com/in/kiran-t-s-252997377" },
       { platform:"Email", handle:"Kirants0504@gmail.com", url:"mailto:Kirants0504@gmail.com" }
-    ],
-    gallery: []
+    ]
   };
 
   let data = JSON.parse(JSON.stringify(DEFAULT_DATA));
@@ -1201,7 +1247,6 @@
     data.certifications.forEach(x=>x.image && ids.add(x.image));
     data.activities.forEach(x=>x.image && ids.add(x.image));
     data.projects.forEach(x=>x.image && ids.add(x.image));
-    data.gallery.forEach(x=>x.image && ids.add(x.image));
     return Array.from(ids);
   }
   async function preloadAssets(){
@@ -1236,7 +1281,6 @@
     for(const it of data.certifications) await migrateField(it, 'image');
     for(const it of data.activities) await migrateField(it, 'image');
     for(const it of data.projects) await migrateField(it, 'image');
-    for(const it of data.gallery) await migrateField(it, 'image');
     return changed;
   }
 
@@ -1492,15 +1536,6 @@
       </a>
     `; }).join('') : '<div class="empty-note">No links added yet.</div>';
 
-    document.getElementById('galleryGrid').innerHTML = data.gallery.length ? data.gallery.map(g => {
-      const src = assetSrc(g.image);
-      return `
-      <div class="gallery-card">
-        <img src="${src}" onclick="openLightbox(this.src)" alt="${escapeHtml(g.caption)}">
-        <div class="gallery-cap">${escapeHtml(g.caption)}</div>
-      </div>
-    `; }).join('') : '<div class="empty-note">No photos added yet.</div>';
-
     document.getElementById('footName').textContent = p.name;
     document.getElementById('footContact').textContent = `${p.email} · ${p.phone} · ${p.location}`;
   }
@@ -1508,7 +1543,7 @@
   const TABS = [
     ['profile','Profile & about'],['education','Education'],['experience','Experience'],
     ['projects','Projects'],['certifications','Certifications'],['skills','Skills'],['ticker','Live ticker'],['activities','Activities'],
-    ['languages','Languages'],['connect','Connect / banners'],['gallery','Gallery'],['analytics','Visitor activity']
+    ['languages','Languages'],['connect','Connect / banners'],['data','Export / import'],['visitors','Visitors'],['analytics','Visitor activity']
   ];
   function initTabs(){
     document.getElementById('adminTabs').innerHTML = TABS.map(([id,label],i) =>
@@ -1521,6 +1556,7 @@
         btn.classList.add('active');
         document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
         if(btn.dataset.tab === 'analytics') loadAnalytics();
+        if(btn.dataset.tab === 'visitors'){ visPage = 0; loadVisitors(); }
       });
     });
   }
@@ -1529,14 +1565,14 @@
     const listEl = document.getElementById('anaList');
     if(!summaryEl || !listEl) return;
     if(!supabaseReady){
-      summaryEl.innerHTML = '<div class="empty-note">Not connected to a shared database yet — visitor activity can only be tracked once Supabase is set up (see the comment near the top of the code). Local-only storage has no way to see what other visitors do.</div>';
+      summaryEl.innerHTML = '<div class="empty-note">Not connected to a shared database yet — visitor activity can only be tracked once Supabase is set up. Local-only storage cannot see what other visitors do.</div>';
       listEl.innerHTML = '';
       return;
     }
     summaryEl.textContent = 'Loading…';
     listEl.textContent = '';
     try{
-      const { data: eventRows, error } = await supabaseClient.from('portfolio_events').select('type,label,ts').order('ts', { ascending:false }).limit(300);
+      const { data: eventRows, error } = await supabaseClient.from('portfolio_events').select('type,label,ts').neq('type','visitor').order('ts', { ascending:false }).limit(300);
       if(error) throw error;
       const events = eventRows || [];
       const counts = {};
@@ -1545,7 +1581,7 @@
       const rows = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
       summaryEl.innerHTML = `<div class="side-val" style="margin-bottom:12px;">Page views (last ${events.length} logged events): <b>${totalViews}</b></div>` +
         (rows.length ? rows.map(([k,v])=>`<div class="skill-manage-row"><div>${escapeHtml(k)}</div><div class="mono">${v}</div></div>`).join('') : '<div class="empty-note">No activity yet.</div>');
-      listEl.innerHTML = events.slice(0,50).map(e=>`<div class="skill-manage-row"><div>${escapeHtml(e.type)} — ${escapeHtml(e.label)}</div><div class="mono">${new Date(e.ts).toLocaleString('en-IN')}</div></div>`).join('') || '<div class="empty-note">No activity yet.</div>';
+      listEl.innerHTML = events.slice(0,50).map(e=>`<div class="skill-manage-row"><div>${escapeHtml(e.type)} — ${escapeHtml(e.label)}</div><div style="display:flex; gap:10px; align-items:center;"><span class="mono">${new Date(e.ts).toLocaleString('en-IN')}</span><button class="btn danger" onclick="deleteEvent('${escapeHtml(e.type)}', ${e.ts})">Delete</button></div></div>`).join('') || '<div class="empty-note">No activity yet.</div>';
     }catch(e){
       summaryEl.innerHTML = '<div class="empty-note">Could not load activity — check that the portfolio_events table exists and its policies allow read access.</div>';
       listEl.innerHTML = '';
@@ -1801,8 +1837,400 @@
       [{key:'platform',label:'Platform'},{key:'handle',label:'Handle / label'},{key:'url',label:'URL'}], null);
     wireAddForm('add_conn_btn', [{key:'platform'},{key:'handle'},{key:'url'}], 'add_conn', null, data.socials);
 
-    renderManageList('galManage', data.gallery, [{key:'caption',label:'Caption'}], {key:'image', label:'Image'});
-    wireAddForm('add_gal_btn', [{key:'caption'}], 'add_gal', {key:'image', formKey:'image'}, data.gallery);
+  }
+
+  /* ---------- export / import of the whole site ---------- */
+  function downloadBlob(filename, text, mime){
+    const blob = new Blob([text], { type: mime });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+  }
+  async function exportSiteData(){
+    const msg = document.getElementById('exportMsg');
+    msg.textContent = 'Preparing backup…';
+    try{
+      const assets = {};
+      for(const id of collectAssetIds()){
+        const v = await loadAsset(id);
+        if(v) assets[id] = v;
+      }
+      const payload = { app:'kiran-portfolio', version:1, exportedAt:new Date().toISOString(), data, assets };
+      downloadBlob('portfolio-backup-' + new Date().toISOString().slice(0,10) + '.json', JSON.stringify(payload), 'application/json');
+      msg.textContent = 'Backup downloaded.';
+    }catch(e){ msg.textContent = 'Could not create the backup.'; }
+  }
+  async function importSiteData(){
+    const msg = document.getElementById('importMsg');
+    const file = document.getElementById('importFile').files[0];
+    if(!file){ msg.textContent = 'Choose a backup file first.'; return; }
+    if(!confirm('Importing replaces the current portfolio content with the backup. Continue?')) return;
+    msg.textContent = 'Importing…';
+    try{
+      if(/\.xlsx?$/i.test(file.name)){ await importSiteExcel(file); msg.textContent = 'Import complete (text content updated; photos kept as they were).'; return; }
+      const parsed = JSON.parse(await file.text());
+      if(!parsed || parsed.app !== 'kiran-portfolio' || !parsed.data) throw new Error('not a portfolio backup');
+      const assets = parsed.assets || {};
+      for(const id of Object.keys(assets)){
+        const res = await storageSet('asset:' + id, assets[id]);
+        if(!res) throw new Error('asset save failed');
+        assetCache[id] = assets[id];
+      }
+      data = withDefaults(parsed.data);
+      await saveData(null);
+      renderPublic();
+      renderAdmin();
+      msg.textContent = 'Import complete.';
+    }catch(e){
+      msg.textContent = 'Import failed — use a .json or .xlsx file created by this admin desk.';
+    }
+  }
+
+  /* ---------- visitor names ---------- */
+  const VISITOR_EDITS_KEY = 'visitor-edits-v1';
+  const VIS_PAGE = 10;
+  let visPage = 0, visTotal = 0, visEdits = {};
+
+  function detectBrowser(){
+    const ua = navigator.userAgent || '';
+    let b = 'Unknown browser';
+    if(/Edg\//.test(ua)) b = 'Edge';
+    else if(/OPR\/|Opera/.test(ua)) b = 'Opera';
+    else if(/SamsungBrowser/.test(ua)) b = 'Samsung Internet';
+    else if(/Firefox|FxiOS/.test(ua)) b = 'Firefox';
+    else if(/Chrome|CriOS/.test(ua)) b = 'Chrome';
+    else if(/Safari/.test(ua)) b = 'Safari';
+    let o = '';
+    if(/Windows/.test(ua)) o = 'Windows';
+    else if(/Android/.test(ua)) o = 'Android';
+    else if(/iPhone|iPad|iPod/.test(ua)) o = 'iOS';
+    else if(/Mac OS X|Macintosh/.test(ua)) o = 'macOS';
+    else if(/Linux/.test(ua)) o = 'Linux';
+    return o ? b + ' on ' + o : b;
+  }
+  function splitVisitorLabel(label){
+    const i = String(label||'').indexOf('||');
+    return i < 0 ? { name:String(label||''), browser:'' } : { name:label.slice(0,i), browser:label.slice(i+2) };
+  }
+  function getStoredVisitorName(){ try{ return localStorage.getItem('visitor_name') || ''; }catch(e){ return ''; } }
+  function submitVisitorName(){
+    const name = document.getElementById('vnameInput').value.trim().slice(0,60);
+    if(!name){ document.getElementById('vnameInput').focus(); return; }
+    try{ localStorage.setItem('visitor_name', name); }catch(e){}
+    document.getElementById('vnameOverlay').classList.remove('show');
+    try{ sessionStorage.setItem('visitor_logged','1'); }catch(e){}
+    logVisitEvent('visitor', name.replace(/\|\|/g,'') + '||' + detectBrowser());
+  }
+  function skipVisitorName(){
+    try{ sessionStorage.setItem('visitor_skipped','1'); sessionStorage.setItem('visitor_logged','1'); }catch(e){}
+    logVisitEvent('visitor', 'Guest||' + detectBrowser());
+    document.getElementById('vnameOverlay').classList.remove('show');
+  }
+  function maybeAskVisitorName(){
+    if(isAdmin) return;
+    const known = getStoredVisitorName();
+    if(known){
+      /* returning visitor: log their saved name + browser once per session */
+      try{ if(sessionStorage.getItem('visitor_logged')) return; sessionStorage.setItem('visitor_logged','1'); }catch(e){}
+      logVisitEvent('visitor', known.replace(/\|\|/g,'') + '||' + detectBrowser());
+      return;
+    }
+    try{ if(sessionStorage.getItem('visitor_skipped')) return; }catch(e){}
+    document.getElementById('vnameOverlay').classList.add('show');
+    setTimeout(()=>document.getElementById('vnameInput').focus(), 100);
+  }
+  document.getElementById('vnameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') submitVisitorName(); });
+
+  async function loadVisitEdits(){
+    try{
+      const res = await storageGet(VISITOR_EDITS_KEY);
+      visEdits = (res && res.value) ? JSON.parse(res.value) : {};
+    }catch(e){ visEdits = {}; }
+  }
+  async function loadVisitors(){
+    const listEl = document.getElementById('visList');
+    const msgEl = document.getElementById('visMsg');
+    msgEl.textContent = '';
+    if(!supabaseReady){
+      listEl.innerHTML = '<div class="empty-note">Visitor names need the shared database to be connected.</div>';
+      document.getElementById('visInfo').textContent = '';
+      document.getElementById('visPrev').disabled = true;
+      document.getElementById('visNext').disabled = true;
+      return;
+    }
+    listEl.textContent = 'Loading…';
+    try{
+      await loadVisitEdits();
+      const from = visPage * VIS_PAGE;
+      const { data: rows, error, count } = await supabaseClient.from('portfolio_events')
+        .select('label,ts', { count:'exact' }).eq('type','visitor')
+        .order('ts', { ascending:false }).range(from, from + VIS_PAGE - 1);
+      if(error) throw error;
+      visTotal = count || 0;
+      listEl.innerHTML = (rows||[]).length ? rows.map((r,i)=>{
+        const lb = splitVisitorLabel(r.label);
+        const name = visEdits[r.ts] !== undefined ? visEdits[r.ts] : lb.name;
+        return `<div class="vis-row">
+          <span class="vis-num">${from+i+1}</span>
+          <input type="text" id="vis_${r.ts}" value="${escapeHtml(name)}" maxlength="60">
+          <span class="vis-time">${lb.browser ? escapeHtml(lb.browser) + ' · ' : ''}${new Date(r.ts).toLocaleString('en-IN')}</span>
+          <span style="display:flex; gap:6px;"><button class="btn ghost" style="padding:8px 14px; font-size:11px;" onclick="saveVisitorName(${r.ts})">Save</button><button class="btn danger" onclick="deleteVisitor(${r.ts})">Delete</button></span>
+        </div>`;
+      }).join('') : '<div class="empty-note">No visitor names yet.</div>';
+      const last = Math.min(from + VIS_PAGE, visTotal);
+      document.getElementById('visInfo').textContent = visTotal ? `${from+1}–${last} of ${visTotal}` : '';
+      document.getElementById('visPrev').disabled = visPage === 0;
+      document.getElementById('visNext').disabled = last >= visTotal;
+    }catch(e){
+      listEl.innerHTML = '<div class="empty-note">Could not load visitors — check that the portfolio_events table allows read access.</div>';
+    }
+  }
+  function visGo(dir){
+    const maxPage = Math.max(0, Math.ceil(visTotal / VIS_PAGE) - 1);
+    visPage = Math.min(maxPage, Math.max(0, visPage + dir));
+    loadVisitors();
+  }
+  async function saveVisitorName(ts){
+    const input = document.getElementById('vis_' + ts);
+    const msgEl = document.getElementById('visMsg');
+    const name = input.value.trim().slice(0,60);
+    if(!name){ msgEl.textContent = 'Name cannot be empty.'; return; }
+    try{
+      await loadVisitEdits();
+      visEdits[ts] = name;
+      const res = await storageSet(VISITOR_EDITS_KEY, JSON.stringify(visEdits));
+      if(!res) throw new Error('save failed');
+      msgEl.textContent = 'Name updated.';
+      setTimeout(()=>{ msgEl.textContent=''; }, 1800);
+    }catch(e){ msgEl.textContent = 'Could not save the change — try again.'; }
+  }
+  function csvCell(v){ v = String(v==null?'':v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v; }
+  /* ---------- shared export helpers: CSV / Excel / JSON / print ---------- */
+  let sheetJsPromise = null;
+  function loadSheetJS(){
+    if(window.XLSX) return Promise.resolve(window.XLSX);
+    if(sheetJsPromise) return sheetJsPromise;
+    sheetJsPromise = new Promise((resolve, reject)=>{
+      const sc = document.createElement('script');
+      sc.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+      sc.onload = ()=> window.XLSX ? resolve(window.XLSX) : reject(new Error('Excel library missing'));
+      sc.onerror = ()=>{ sheetJsPromise = null; reject(new Error('Could not load the Excel library')); };
+      document.head.appendChild(sc);
+    });
+    return sheetJsPromise;
+  }
+  function todayStamp(){ return new Date().toISOString().slice(0,10); }
+  async function exportRows(rows, base, fmt, sheetName){
+    if(fmt === 'json'){ downloadBlob(`${base}-${todayStamp()}.json`, JSON.stringify(rows, null, 2), 'application/json'); return; }
+    if(fmt === 'xlsx'){
+      const X = await loadSheetJS();
+      const wb = X.utils.book_new();
+      X.utils.book_append_sheet(wb, X.utils.json_to_sheet(rows), sheetName || 'Sheet1');
+      X.writeFile(wb, `${base}-${todayStamp()}.xlsx`);
+      return;
+    }
+    const cols = rows.length ? Object.keys(rows[0]) : [];
+    const lines = [cols.map(csvCell).join(',')].concat(rows.map(r=>cols.map(c=>csvCell(r[c])).join(',')));
+    downloadBlob(`${base}-${todayStamp()}.csv`, '\ufeff' + lines.join('\n'), 'text/csv;charset=utf-8');
+  }
+  function printRows(title, rows){
+    const cols = rows.length ? Object.keys(rows[0]) : [];
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:20px;margin:0 0 4px}p{font-size:12px;color:#555;margin:0 0 16px}table{border-collapse:collapse;width:100%;font-size:12px}th,td{border:1px solid #bbb;padding:6px 8px;text-align:left}th{background:#eee}tr{page-break-inside:avoid}</style></head><body><h1>${escapeHtml(title)}</h1><p>Printed ${escapeHtml(new Date().toLocaleString('en-IN'))} · ${rows.length} rows</p><table><thead><tr>${cols.map(c=>`<th>${escapeHtml(c)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${escapeHtml(r[c])}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`;
+    const f = document.createElement('iframe');
+    f.style.cssText = 'position:fixed; right:0; bottom:0; width:0; height:0; border:0;';
+    document.body.appendChild(f);
+    const d = f.contentWindow.document; d.open(); d.write(html); d.close();
+    setTimeout(()=>{ f.contentWindow.focus(); f.contentWindow.print(); setTimeout(()=>f.remove(), 2000); }, 300);
+  }
+  async function fetchAllEvents(kind){
+    let all = [], from = 0;
+    while(true){
+      let q = supabaseClient.from('portfolio_events').select('type,label,ts').order('ts', { ascending:false }).range(from, from + 999);
+      q = kind === 'visitor' ? q.eq('type','visitor') : q.neq('type','visitor');
+      const { data: rows, error } = await q;
+      if(error) throw error;
+      all = all.concat(rows || []);
+      if(!rows || rows.length < 1000) break;
+      from += 1000;
+    }
+    return all;
+  }
+  const DELETE_BLOCKED = 'The database did not allow deleting. Add a DELETE policy for portfolio_events in Supabase, then try again.';
+  async function countEvents(kind){
+    let q = supabaseClient.from('portfolio_events').select('*', { count:'exact', head:true });
+    q = kind === 'visitor' ? q.eq('type','visitor') : q.neq('type','visitor');
+    const { count, error } = await q;
+    if(error) throw error;
+    return count || 0;
+  }
+
+  /* ---------- visitors: export / print / delete ---------- */
+  async function visitorRows(){
+    await loadVisitEdits();
+    const all = await fetchAllEvents('visitor');
+    return all.map((r,i)=>{
+      const lb = splitVisitorLabel(r.label);
+      return { 'No': i+1, 'Name': visEdits[r.ts] !== undefined ? visEdits[r.ts] : lb.name, 'Original name': lb.name, 'Browser': lb.browser, 'Visited at': new Date(r.ts).toLocaleString('en-IN') };
+    });
+  }
+  async function exportVisitors(fmt){
+    const msgEl = document.getElementById('visMsg');
+    if(!supabaseReady){ msgEl.textContent = 'Visitor names need the shared database to be connected.'; return; }
+    msgEl.textContent = 'Preparing export…';
+    try{
+      const rows = await visitorRows();
+      await exportRows(rows, 'visitors', fmt || 'csv', 'Visitors');
+      msgEl.textContent = `Exported ${rows.length} visitors.`;
+    }catch(e){ msgEl.textContent = 'Could not export visitors.'; }
+  }
+  async function printVisitors(){
+    const msgEl = document.getElementById('visMsg');
+    if(!supabaseReady){ msgEl.textContent = 'Visitor names need the shared database to be connected.'; return; }
+    try{ printRows('Visitors', await visitorRows()); msgEl.textContent = ''; }
+    catch(e){ msgEl.textContent = 'Could not prepare the print view.'; }
+  }
+  async function deleteVisitor(ts){
+    const msgEl = document.getElementById('visMsg');
+    if(!confirm('Delete this visitor entry?')) return;
+    try{
+      const { error, count } = await supabaseClient.from('portfolio_events').delete({ count:'exact' }).eq('type','visitor').eq('ts', ts);
+      if(error) throw error;
+      if(!count){ msgEl.textContent = DELETE_BLOCKED; return; }
+      await loadVisitEdits();
+      if(visEdits[ts] !== undefined){ delete visEdits[ts]; await storageSet(VISITOR_EDITS_KEY, JSON.stringify(visEdits)); }
+      msgEl.textContent = 'Visitor deleted.';
+      loadVisitors();
+    }catch(e){ msgEl.textContent = 'Could not delete the visitor.'; }
+  }
+  async function deleteAllVisitors(){
+    const msgEl = document.getElementById('visMsg');
+    if(!supabaseReady){ msgEl.textContent = 'Visitor names need the shared database to be connected.'; return; }
+    if(!confirm('Delete ALL visitor entries? This cannot be undone. Export first if you want a copy.')) return;
+    try{
+      const before = await countEvents('visitor');
+      if(!before){ msgEl.textContent = 'There are no visitor entries to delete.'; return; }
+      const { error, count } = await supabaseClient.from('portfolio_events').delete({ count:'exact' }).eq('type','visitor');
+      if(error) throw error;
+      if(!count){ msgEl.textContent = DELETE_BLOCKED; return; }
+      try{ await storageDelete(VISITOR_EDITS_KEY); }catch(e){}
+      visEdits = {}; visPage = 0;
+      msgEl.textContent = `Deleted ${count} visitor entries.`;
+      loadVisitors();
+    }catch(e){ msgEl.textContent = 'Could not delete visitors.'; }
+  }
+
+  /* ---------- visitor activity: export / print / delete ---------- */
+  async function activityRows(){
+    const all = await fetchAllEvents('activity');
+    return all.map((r,i)=>({ 'No': i+1, 'Type': r.type, 'Detail': r.label, 'Time': new Date(r.ts).toLocaleString('en-IN') }));
+  }
+  async function exportActivity(fmt){
+    const msgEl = document.getElementById('anaMsg');
+    if(!supabaseReady){ msgEl.textContent = 'Activity needs the shared database to be connected.'; return; }
+    msgEl.textContent = 'Preparing export…';
+    try{
+      const rows = await activityRows();
+      await exportRows(rows, 'visitor-activity', fmt || 'csv', 'Activity');
+      msgEl.textContent = `Exported ${rows.length} events.`;
+    }catch(e){ msgEl.textContent = 'Could not export activity.'; }
+  }
+  async function printActivity(){
+    const msgEl = document.getElementById('anaMsg');
+    if(!supabaseReady){ msgEl.textContent = 'Activity needs the shared database to be connected.'; return; }
+    try{ printRows('Visitor activity', await activityRows()); msgEl.textContent = ''; }
+    catch(e){ msgEl.textContent = 'Could not prepare the print view.'; }
+  }
+  async function deleteEvent(type, ts){
+    const msgEl = document.getElementById('anaMsg');
+    if(!confirm('Delete this activity entry?')) return;
+    try{
+      const { error, count } = await supabaseClient.from('portfolio_events').delete({ count:'exact' }).eq('type', type).eq('ts', ts);
+      if(error) throw error;
+      if(!count){ msgEl.textContent = DELETE_BLOCKED; return; }
+      msgEl.textContent = 'Entry deleted.';
+      loadAnalytics();
+    }catch(e){ msgEl.textContent = 'Could not delete the entry.'; }
+  }
+  async function deleteAllActivity(){
+    const msgEl = document.getElementById('anaMsg');
+    if(!supabaseReady){ msgEl.textContent = 'Activity needs the shared database to be connected.'; return; }
+    if(!confirm('Delete ALL visitor activity (page views and clicks)? Visitor names are kept. This cannot be undone.')) return;
+    try{
+      const before = await countEvents('activity');
+      if(!before){ msgEl.textContent = 'There is no activity to delete.'; return; }
+      const { error, count } = await supabaseClient.from('portfolio_events').delete({ count:'exact' }).neq('type','visitor');
+      if(error) throw error;
+      if(!count){ msgEl.textContent = DELETE_BLOCKED; return; }
+      msgEl.textContent = `Deleted ${count} activity entries.`;
+      loadAnalytics();
+    }catch(e){ msgEl.textContent = 'Could not delete activity.'; }
+  }
+
+  /* ---------- site data as Excel ---------- */
+  function xlEnc(v){ return (v !== null && typeof v === 'object') ? 'json:' + JSON.stringify(v) : (v == null ? '' : v); }
+  function xlDec(v){
+    if(typeof v === 'string' && v.indexOf('json:') === 0){ try{ return JSON.parse(v.slice(5)); }catch(e){} }
+    return v;
+  }
+  async function exportSiteExcel(){
+    const msg = document.getElementById('exportMsg');
+    msg.textContent = 'Preparing Excel file…';
+    try{
+      const X = await loadSheetJS();
+      const wb = X.utils.book_new();
+      const meta = [];
+      const sheets = [];
+      Object.keys(data).forEach(key=>{
+        const val = data[key];
+        let type, rows, cols;
+        if(Array.isArray(val)){
+          if(val.every(x=>x && typeof x === 'object' && !Array.isArray(x))){
+            type = 'objects';
+            cols = []; val.forEach(o=>Object.keys(o).forEach(c=>{ if(cols.indexOf(c) < 0) cols.push(c); }));
+            rows = val.map(o=>{ const r = {}; cols.forEach(c=>{ r[c] = xlEnc(o[c]); }); return r; });
+          } else {
+            type = 'values';
+            rows = val.map(x=>({ value: xlEnc(x) }));
+          }
+        } else if(val && typeof val === 'object'){
+          type = 'object';
+          rows = Object.keys(val).map(k=>({ field:k, value: xlEnc(val[k]) }));
+        } else {
+          meta.push({ key, type:'value', value: xlEnc(val) });
+          return;
+        }
+        meta.push({ key, type, value:'' });
+        sheets.push([key.slice(0,31), rows, cols]);
+      });
+      X.utils.book_append_sheet(wb, X.utils.json_to_sheet(meta, { header:['key','type','value'] }), '_meta');
+      sheets.forEach(([name, rows, cols])=>{
+        X.utils.book_append_sheet(wb, X.utils.json_to_sheet(rows, cols && cols.length ? { header: cols } : undefined), name);
+      });
+      X.writeFile(wb, 'portfolio-content-' + todayStamp() + '.xlsx');
+      msg.textContent = 'Excel file downloaded (text content only — use JSON for a full backup with photos).';
+    }catch(e){ msg.textContent = 'Could not create the Excel file.'; }
+  }
+  async function importSiteExcel(file){
+    const X = await loadSheetJS();
+    const wb = X.read(await file.arrayBuffer(), { type:'array' });
+    if(!wb.Sheets['_meta']) throw new Error('not a portfolio workbook');
+    const meta = X.utils.sheet_to_json(wb.Sheets['_meta'], { defval:'' });
+    const out = {};
+    meta.forEach(m=>{
+      if(m.type === 'value'){ out[m.key] = xlDec(m.value); return; }
+      const ws = wb.Sheets[String(m.key).slice(0,31)];
+      if(!ws) return;
+      const rows = X.utils.sheet_to_json(ws, { defval:'' });
+      if(m.type === 'objects') out[m.key] = rows.map(r=>{ const o = {}; Object.keys(r).forEach(k=>{ o[k] = xlDec(r[k]); }); return o; });
+      else if(m.type === 'values') out[m.key] = rows.map(r=>xlDec(r.value));
+      else if(m.type === 'object'){ const o = {}; rows.forEach(r=>{ if(r.field !== '') o[r.field] = xlDec(r.value); }); out[m.key] = o; }
+    });
+    data = withDefaults(out);
+    await saveData(null);
+    renderPublic();
+    renderAdmin();
   }
 
   function goAdmin(){
@@ -1956,7 +2384,7 @@
   wireTilt();
 
   /* visitor activity logging — only fires when a shared database is connected */
-  if(!isAdmin){ logVisitEvent('page_view', 'site'); }
+  if(!isAdmin){ logVisitEvent('page_view', 'site'); maybeAskVisitorName(); }
   document.querySelectorAll('.margin-nav a').forEach(a=>{
     a.addEventListener('click', ()=> logVisitEvent('nav_click', a.getAttribute('href').replace('#','')));
   });
